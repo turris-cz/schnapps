@@ -27,11 +27,11 @@ if [ -n "`which uci`" ]; then
     KEEP_MAX_UPDATER="` uci get schnapps.keep.max_updater  2> /dev/null`"
     KEEP_MAX_ROLLBACK="`uci get schnapps.keep.max_rollback 2> /dev/null`"
 fi
-[ \! -f /etc/schnapps ]     || . /etc/schnapps
-[ -n "$KEEP_MAX_SINGLE"   ] || KEEP_MAX_SINGLE=-1
-[ -n "$KEEP_MAX_TIME"     ] || KEEP_MAX_TIME=-1
-[ -n "$KEEP_MAX_UPDATER"  ] || KEEP_MAX_UPDATER=-1
-[ -n "$KEEP_MAX_ROLLBACK" ] || KEEP_MAX_ROLLBACK=-1
+[ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
+[ -n "$KEEP_MAX_SINGLE"      ] || KEEP_MAX_SINGLE=-1
+[ -n "$KEEP_MAX_TIME"        ] || KEEP_MAX_TIME=-1
+[ -n "$KEEP_MAX_UPDATER"     ] || KEEP_MAX_UPDATER=-1
+[ -n "$KEEP_MAX_ROLLBACK"    ] || KEEP_MAX_ROLLBACK=-1
 
 show_help() {
     echo "Usage: `basename $0` command [options]"
