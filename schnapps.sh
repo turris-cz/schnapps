@@ -34,7 +34,7 @@ fi
 [ -n "$KEEP_MAX_ROLLBACK"    ] || KEEP_MAX_ROLLBACK=-1
 
 show_help() {
-    echo "Usage: `basename $0` command [options]"
+    echo "Usage: `basename $0` [-d root] command [options]"
     echo ""
     echo "Commands:"
     echo "  create [opts] [desc]    Creates snapshot of current system"
@@ -465,6 +465,11 @@ snp_status() {
     echo
     my_status "$1" "$2"
 }
+
+if [ "x$1" == "x-d" ]; then
+    ROOT_DEV="$(btrfs fi show $2 | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p')"
+    shift 2
+fi
 
 mount_root
 trap 'umount_root; exit "$ERR"' EXIT INT QUIT TERM ABRT
