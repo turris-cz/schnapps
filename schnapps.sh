@@ -42,7 +42,9 @@ show_help() {
     echo "          -t type         Type of the snapshot - default 'single'"
     echo "                          Other options are 'time', 'pre' and 'post'"
     echo
-    echo "  list                    Show available snapshots"
+    echo "  list [opts]             Show available snapshots"
+    echo "      Options:"
+    echo "          -j              Output in json format"
     echo
     echo "  cleanup [--compare]     Deletes old snapshots and keeps only N newest"
     echo "                          You can set number of snapshots to keep in /etc/config/schnapps"
@@ -166,16 +168,31 @@ table_separator() {
 }
 
 list() {
+    [ "x$1" \!= x-j ]
     cd "$TMP_MNT_DIR"
-    table_put "#" Type Date Description
-    table_separator
+    if [ "x$1" \!= x-j ]; then
+        table_put "#" Type Date Description
+        table_separator
+    else
+        echo -n '{ "snapshots": [ '
+    fi
+    FIRST="YES"
     for i in `btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n`; do
         CREATED="`btrfs subvolume show "$TMP_MNT_DIR"/@$i | sed -n 's|.*Creation time:[[:blank:]]*||p'`"
         DESCRIPTION=""
         TYPE="single"
         [ \! -f "$TMP_MNT_DIR"/$i.info ] || . "$TMP_MNT_DIR"/$i.info
-        table_put "$i" "$TYPE" "$CREATED" "$DESCRIPTION"
+        if [ "x$1" \!= x-j ]; then
+            table_put "$i" "$TYPE" "$CREATED" "$DESCRIPTION"
+	else
+	    [ -n "$FIRST" ] || echo -n ", "
+	    echo -n "{ \"number\": $i, \"type\": \"$TYPE\", \"created\": \"$CREATED\", \"description\": \""
+	    echo -n "$(echo "$DESCRIPTION" | sed 's|\("\\\)|\\\1|g')"
+	    echo -n '" }'
+            FIRST=""
+	fi
     done
+    [ "x$1" \!= x-j ] || echo " ] }"
 }
 
 get_next_number() {
@@ -461,7 +478,7 @@ case $command in
         modify "$@"
         ;;
     list)
-        list
+        list "$@"
         ;;
     cleanup)
         cleanup "$@"
