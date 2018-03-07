@@ -81,6 +81,11 @@ show_help() {
     echo "  diff [number] [number]  Compare snapshots corresponding to the numbers"
     echo "                          Numbers can be found via list command"
     echo "                          Shows even diffs of individual files"
+    echo
+    echo "  export number path      Export snapshot as a medkit into specified directory"
+    echo
+    echo "  import path/snpsht.info Import exported snapshot"
+    echo
 }
 
 mount_root() {
@@ -471,6 +476,50 @@ if [ "x$1" == "x-d" ]; then
     shift 2
 fi
 
+export_sn() {
+    INFO="$2/omnia-medkit-$1.info"
+    TAR="$2/omnia-medkit-$1.tar.gz"
+    if [ $# -ne 2 ] || [ \! -d "$TMP_MNT_DIR"/@"$1" ] || [ \! -d "$2" ]; then
+        echo "Export takes two arguments, snapshot number and output directory!"
+        ERR=5
+        return
+    fi
+    if tar -C "$TMP_MNT_DIR"/@$1 --numeric-owner -cpzvf "$TAR" .; then
+	cp "$TMP_MNT_DIR"/"$1.info" "$INFO"
+	echo "Snapshot $1 exported into $2 as omnia-medkit-$1"
+    else
+        echo "Snapshot export failed!"
+        ERR=6
+    fi
+}
+
+import_sn() {
+    INFO="$1"
+    TAR="$(echo "$INFO" | sed -n 's|.info$|.tar.gz|p')"
+    if [ $# -ne 1 ] || [ \! -f "$INFO" ] || [ \! -f "$TAR" ]; then
+        echo "Import takes one argument which is snapshot info file!"
+        echo "Actual tarball has to be next to it!"
+        ERR=5
+        return
+    fi
+    
+    NUMBER="`get_next_number`"
+    if btrfs subvolume create "$TMP_MNT_DIR"/@$NUMBER > /dev/null; then
+        if tar -C "$TMP_MNT_DIR"/@$NUMBER --numeric-owner -xpzvf "$TAR"; then
+            cp "$INFO" "$TMP_MNT_DIR"/@$NUMBER
+            echo "Snapshot imported as number $NUMBER"
+            echo "Due to the nature of import, dedpulication desn't work, so it occupies a lot of space."
+            echo "You have been warned!"
+        else
+            btrfs subvolume delete "$TMP_MNT_DIR"/@$NUMBER
+            ERR=6
+        fi
+    else
+        echo "Error creating new snapshot"
+        ERR=4
+    fi
+}
+
 mount_root
 trap 'umount_root; exit "$ERR"' EXIT INT QUIT TERM ABRT
 command="$1"
@@ -481,6 +530,12 @@ case $command in
         ;;
     modify)
         modify "$@"
+        ;;
+    export)
+        export_sn "$@"
+        ;;
+    import)
+        import_sn "$@"
         ;;
     list)
         list "$@"
