@@ -82,7 +82,8 @@ show_help() {
     echo "                          Numbers can be found via list command"
     echo "                          Shows even diffs of individual files"
     echo
-    echo "  export number path      Export snapshot as a medkit into specified directory"
+    echo "  export snapshot path    Export snapshot as a medkit into specified directory"
+    echo "                          Snapshot argument can be snapshot number or 'current' to backup running system"
     echo
     echo "  import path/snpsht.info Import exported snapshot"
     echo
@@ -477,16 +478,30 @@ if [ "x$1" == "x-d" ]; then
 fi
 
 export_sn() {
-    INFO="$2/omnia-medkit-$1.info"
-    TAR="$2/omnia-medkit-$1.tar.gz"
-    if [ $# -ne 2 ] || [ \! -d "$TMP_MNT_DIR"/@"$1" ] || [ \! -d "$2" ]; then
-        echo "Export takes two arguments, snapshot number and output directory!"
+    [ "$1" \!= current ] || shift
+    if [ $# -eq 2 ]; then
+        NAME="$1"
+        NUMBER="$1"
+        shift
+    else
+        NUMBER=""
+        NAME="$(date +%Y%m%d)"
+    fi
+    TRG_PATH="$1"
+    if [ $# -ne 1 ] || [ \! -d "$TMP_MNT_DIR"/@"$NUMBER" ] || [ \! -d "$TRG_PATH" ]; then
+        echo "Export takes target directory as argument!"
         ERR=5
         return
     fi
-    if tar -C "$TMP_MNT_DIR"/@$1 --numeric-owner -cpzvf "$TAR" .; then
-	cp "$TMP_MNT_DIR"/"$1.info" "$INFO"
-	echo "Snapshot $1 exported into $2 as omnia-medkit-$1"
+    INFO="$TRG_PATH/omnia-medkit-$NAME.info"
+    TAR="$TRG_PATH/omnia-medkit-$NAME.tar.gz"
+    if tar -C "$TMP_MNT_DIR"/@$NUMBER --numeric-owner --one-file-system -cpzvf "$TAR" .; then
+	[ \! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
+        if [ -n "$NUMBER" ]; then
+	    echo "Snapshot $NUMBER was exported into $TRG_PATH as omnia-medkit-$NAME"
+        else
+	    echo "Current system was exported into $TRG_PATH as omnia-medkit-$NAME"
+        fi
     else
         echo "Snapshot export failed!"
         ERR=6
