@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Btrfs snapshots managing script
-# (C) 2016 CZ.NIC, z.s.p.o.
+# (C) 2016-2018 CZ.NIC, z.s.p.o.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,13 +21,21 @@ LOCK="/tmp/schnapps.lock"
 ERR=0
 KEEP_MAX=""
 ROOT_DEV="/dev/mmcblk0p1"
-if [ -n "`which uci`" ]; then
+if [ -n "`which uci 2> /dev/null`" ]; then
     KEEP_MAX_SINGLE="`  uci get schnapps.keep.max_single   2> /dev/null`"
     KEEP_MAX_TIME="`    uci get schnapps.keep.max_time     2> /dev/null`"
     KEEP_MAX_UPDATER="` uci get schnapps.keep.max_updater  2> /dev/null`"
     KEEP_MAX_ROLLBACK="`uci get schnapps.keep.max_rollback 2> /dev/null`"
 fi
+
+if [ "x$1" == "x-d" ]; then
+    ROOT_DEV="$(btrfs fi show $2 | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p')"
+    shift 2
+fi
+
 [ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
+ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
+[ -z "$ROOT_LABEL" ] || [ \! -f /etc/schnapps/"$ROOT_LABEL" ] || . /etc/schnapps/"$ROOT_LABEL"
 [ -n "$KEEP_MAX_SINGLE"      ] || KEEP_MAX_SINGLE=-1
 [ -n "$KEEP_MAX_TIME"        ] || KEEP_MAX_TIME=-1
 [ -n "$KEEP_MAX_UPDATER"     ] || KEEP_MAX_UPDATER=-1
@@ -471,11 +479,6 @@ snp_status() {
     echo
     my_status "$1" "$2"
 }
-
-if [ "x$1" == "x-d" ]; then
-    ROOT_DEV="$(btrfs fi show $2 | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p')"
-    shift 2
-fi
 
 export_sn() {
     [ "$1" \!= current ] || shift
