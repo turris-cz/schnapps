@@ -20,7 +20,7 @@ TMP_MNT_DIR="/mnt/.snapshots"
 LOCK="/tmp/schnapps.lock"
 ERR=0
 KEEP_MAX=""
-ROOT_DEV="/dev/mmcblk0p1"
+ROOT_DEV="$(btrfs fi show / | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p' | head -n 1)"
 if [ -n "`which uci 2> /dev/null`" ]; then
     KEEP_MAX_SINGLE="`  uci get schnapps.keep.max_single   2> /dev/null`"
     KEEP_MAX_TIME="`    uci get schnapps.keep.max_time     2> /dev/null`"
