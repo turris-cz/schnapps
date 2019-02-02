@@ -484,6 +484,17 @@ snp_status() {
 }
 
 export_sn() {
+    case "$(cat /sys/firmware/devicetree/base/model 2> /dev/null)" in
+        *Omnia*)
+            BOARD="omnia"
+            ;;
+        *MOX*)
+            BOARD="mox"
+            ;;
+        *)
+            BOARD="schnapps"
+            ;;
+    esac
     [ "$1" \!= current ] || shift
     if [ $# -eq 2 ]; then
         NAME="$1"
@@ -499,8 +510,8 @@ export_sn() {
         ERR=5
         return
     fi
-    INFO="$TRG_PATH/omnia-medkit-$NAME.info"
-    TAR="$TRG_PATH/omnia-medkit-$NAME.tar.gz"
+    INFO="$TRG_PATH/$BOARD-medkit-$NAME.info"
+    TAR="$TRG_PATH/$BOARD-medkit-$NAME.tar.gz"
     if tar -C "$TMP_MNT_DIR"/@$NUMBER --numeric-owner --one-file-system -cpzvf "$TAR" .; then
         [ \! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
         if [ -n "$NUMBER" ]; then
