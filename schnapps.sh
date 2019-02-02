@@ -527,7 +527,7 @@ import_sn() {
     NUMBER="`get_next_number`"
     if btrfs subvolume create "$TMP_MNT_DIR"/@$NUMBER > /dev/null; then
         if tar -C "$TMP_MNT_DIR"/@$NUMBER --numeric-owner -xpzvf "$TAR"; then
-            cp "$INFO" "$TMP_MNT_DIR"/@$NUMBER
+            cp "$INFO" "$TMP_MNT_DIR"/@$NUMBER.info
             echo "Snapshot imported as number $NUMBER"
             echo "Due to the nature of import, deduplication doesn't work, so it occupies a lot of space."
             echo "You have been warned!"
