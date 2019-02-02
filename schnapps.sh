@@ -198,13 +198,13 @@ list() {
         [ \! -f "$TMP_MNT_DIR"/$i.info ] || . "$TMP_MNT_DIR"/$i.info
         if [ "x$1" \!= x-j ]; then
             table_put "$i" "$TYPE" "$CREATED" "$DESCRIPTION"
-	else
-	    [ -n "$FIRST" ] || echo -n ", "
-	    echo -n "{ \"number\": $i, \"type\": \"$TYPE\", \"created\": \"$CREATED\", \"description\": \""
-	    echo -n "$(echo "$DESCRIPTION" | sed 's|\("\\\)|\\\1|g')"
-	    echo -n '" }'
+        else
+            [ -n "$FIRST" ] || echo -n ", "
+            echo -n "{ \"number\": $i, \"type\": \"$TYPE\", \"created\": \"$CREATED\", \"description\": \""
+            echo -n "$(echo "$DESCRIPTION" | sed 's|\("\\\)|\\\1|g')"
+            echo -n '" }'
             FIRST=""
-	fi
+        fi
     done
     [ "x$1" \!= x-j ] || echo " ] }"
 }
@@ -502,11 +502,11 @@ export_sn() {
     INFO="$TRG_PATH/omnia-medkit-$NAME.info"
     TAR="$TRG_PATH/omnia-medkit-$NAME.tar.gz"
     if tar -C "$TMP_MNT_DIR"/@$NUMBER --numeric-owner --one-file-system -cpzvf "$TAR" .; then
-	[ \! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
+        [ \! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
         if [ -n "$NUMBER" ]; then
-	    echo "Snapshot $NUMBER was exported into $TRG_PATH as omnia-medkit-$NAME"
+            echo "Snapshot $NUMBER was exported into $TRG_PATH as omnia-medkit-$NAME"
         else
-	    echo "Current system was exported into $TRG_PATH as omnia-medkit-$NAME"
+            echo "Current system was exported into $TRG_PATH as omnia-medkit-$NAME"
         fi
     else
         echo "Snapshot export failed!"
@@ -515,22 +515,35 @@ export_sn() {
 }
 
 import_sn() {
-    INFO="$1"
-    TAR="$(echo "$INFO" | sed -n 's|.info$|.tar.gz|p')"
-    if [ $# -ne 1 ] || [ \! -f "$INFO" ] || [ \! -f "$TAR" ]; then
-        echo "Import takes one argument which is snapshot info file!"
-        echo "Actual tarball has to be next to it!"
-        ERR=5
-        return
+    if [ "x-f" = "x$1" ]; then
+        shift
+        TAR="$1"
+        INFO=""
+    else
+        INFO="$1"
+        TAR="$(echo "$INFO" | sed -n 's|.info$|.tar.gz|p')"
+        if [ $# -ne 1 ] || [ \! -f "$INFO" ] || [ \! -f "$TAR" ]; then
+            echo "Import takes one argument which is snapshot info file!"
+            echo "Actual tarball has to be next to it!"
+            ERR=5
+            return
+        fi
     fi
-    
+        
     NUMBER="`get_next_number`"
     if btrfs subvolume create "$TMP_MNT_DIR"/@$NUMBER > /dev/null; then
         if tar -C "$TMP_MNT_DIR"/@$NUMBER --numeric-owner -xpzvf "$TAR"; then
-            cp "$INFO" "$TMP_MNT_DIR"/@$NUMBER.info
-            echo "Snapshot imported as number $NUMBER"
-            echo "Due to the nature of import, deduplication doesn't work, so it occupies a lot of space."
-            echo "You have been warned!"
+            if [ -n "$INFO" ]; then
+                cp "$INFO" "$TMP_MNT_DIR"/@$NUMBER.info
+                echo "Snapshot imported as number $NUMBER"
+                echo "Due to the nature of import, deduplication doesn't work, so it occupies a lot of space."
+                echo "You have been warned!"
+            else
+                mv "$TMP_MNT_DIR"/@factory "$TMP_MNT_DIR"/@factory-old
+                mv "$TMP_MNT_DIR"/@$NUMBER "$TMP_MNT_DIR"/@factory
+                btrfs subvolume delete -c "$TMP_MNT_DIR"/@factory-old
+                echo "Your factory image was updated!"
+            fi
         else
             btrfs subvolume delete "$TMP_MNT_DIR"/@$NUMBER
             ERR=6
