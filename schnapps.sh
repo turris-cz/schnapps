@@ -529,7 +529,7 @@ import_sn() {
         if tar -C "$TMP_MNT_DIR"/@$NUMBER --numeric-owner -xpzvf "$TAR"; then
             cp "$INFO" "$TMP_MNT_DIR"/@$NUMBER
             echo "Snapshot imported as number $NUMBER"
-            echo "Due to the nature of import, dedpulication desn't work, so it occupies a lot of space."
+            echo "Due to the nature of import, deduplication doesn't work, so it occupies a lot of space."
             echo "You have been warned!"
         else
             btrfs subvolume delete "$TMP_MNT_DIR"/@$NUMBER
