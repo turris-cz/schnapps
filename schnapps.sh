@@ -23,6 +23,7 @@ ERR=0
 KEEP_MAX=""
 REMOTE_URL=""
 REMOTE_PATH=""
+GPG_PASS=""
 ROOT_DEV="$(btrfs fi show / | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p' | head -n 1)"
 if [ -n "`which uci 2> /dev/null`" ]; then
     KEEP_MAX_SINGLE="`  uci get schnapps.keep.max_single   2> /dev/null`"
@@ -30,7 +31,8 @@ if [ -n "`which uci 2> /dev/null`" ]; then
     KEEP_MAX_UPDATER="` uci get schnapps.keep.max_updater  2> /dev/null`"
     KEEP_MAX_ROLLBACK="`uci get schnapps.keep.max_rollback 2> /dev/null`"
     REMOTE_URL="`       uci get schnapps.remote.url        2> /dev/null`"
-    REMOTE_PATH="`      uci get schnapps.remote.path        2> /dev/null`"
+    REMOTE_PATH="`      uci get schnapps.remote.path       2> /dev/null`"
+    GPG_PASS="`         uci get schnapps.encrypt.pass      2> /dev/null`"
 fi
 
 if [ "x$1" == "x-d" ]; then
@@ -492,6 +494,27 @@ snp_status() {
     my_status "$1" "$2"
 }
 
+tar_it() {
+    if [ -n "$GPG_PASS" ] && [ -n "`which gpg`" ]; then
+        rm -rf /tmp/schnapps-gpg
+        mkdir -p /tmp/schnapps-gpg/home
+        chown -R root:root /tmp/schnapps-gpg
+        chmod -R 0700 /tmp/schnapps-gpg
+        export GNUPGHOME=/tmp/schnapps-gpg/home
+        echo "$GPG_PASS" > /tmp/schnapps-gpg/pass
+        tar -C "$1" --numeric-owner --one-file-system -cpvf - . \
+        --use-compress-program="gzip -c - | gpg  \
+        --batch --yes --passphrase-file /tmp/schnapps-gpg/pass \
+        --cipher-algo=AES256 -c" > "$2".gpg
+        ret="$?"
+        rm -rf /tmp/schnapps-gpg
+        return $ret
+    else
+        tar -C "$1" --numeric-owner --one-file-system -cpzvf "$2" .
+        return $?
+    fi
+}
+
 export_sn() {
     case "$(cat /sys/firmware/devicetree/base/model 2> /dev/null)" in
         *Omnia*)
@@ -515,6 +538,7 @@ export_sn() {
     fi
     [ -n "$NAME" ] || NAME="$(date +%Y%m%d)"
     TRG_PATH="$1"
+
     if [ $# -ne 1 ] || [ \! -d "$TMP_MNT_DIR"/@"$NUMBER" ] || [ \! -d "$TRG_PATH" ]; then
         echo "Export takes target directory as argument!"
         ERR=5
@@ -522,7 +546,7 @@ export_sn() {
     fi
     INFO="$TRG_PATH/$BOARD-medkit-$NAME.info"
     TAR="$TRG_PATH/$BOARD-medkit-$NAME.tar.gz"
-    if tar -C "$TMP_MNT_DIR"/@$NUMBER --numeric-owner --one-file-system -cpzvf "$TAR" .; then
+    if tar_it "$TMP_MNT_DIR"/@$NUMBER "$TAR" .; then
         [ \! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
         if [ -n "$NUMBER" ]; then
             echo "Snapshot $NUMBER was exported into $TRG_PATH as $BOARD-medkit-$NAME"
@@ -553,6 +577,7 @@ remote_mount() {
             ;;
         ssh://*)
             FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|ssh://||')"
+            expr "$FINAL_REMOTE_URL" : '.*:"' > /dev/null || FINAL_REMOTE_URL="$FINAL_REMOTE_URL:"
             [ -n "`which sshfs`" ] || die "sshfs is not available"
             sshfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR"
             ;;
@@ -583,8 +608,9 @@ upload() {
     fi
     [ -z "$1" ] || { REMOTE_URL="$1"; shift; }
     [ -z "$1" ] || { REMOTE_PATH="$1"; shift; }
+    expr "$REMOTE_PATH" : '/' > /dev/null || REMOTE_PATH="/$REMOTE_PATH"
     remote_mount
-    export_sn "$NUM" "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"
+    export_sn "$NUM" "$TMP_RMT_MNT_DIR""$REMOTE_PATH"
     remote_unmount
 }
 
