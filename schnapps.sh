@@ -17,15 +17,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 TMP_MNT_DIR="/mnt/.snapshots"
+TMP_RMT_MNT_DIR="/mnt/.remote-snapshots"
 LOCK="/tmp/schnapps.lock"
 ERR=0
 KEEP_MAX=""
+REMOTE_URL=""
+REMOTE_PATH=""
 ROOT_DEV="$(btrfs fi show / | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p' | head -n 1)"
 if [ -n "`which uci 2> /dev/null`" ]; then
     KEEP_MAX_SINGLE="`  uci get schnapps.keep.max_single   2> /dev/null`"
     KEEP_MAX_TIME="`    uci get schnapps.keep.max_time     2> /dev/null`"
     KEEP_MAX_UPDATER="` uci get schnapps.keep.max_updater  2> /dev/null`"
     KEEP_MAX_ROLLBACK="`uci get schnapps.keep.max_rollback 2> /dev/null`"
+    REMOTE_URL="`       uci get schnapps.remote.url        2> /dev/null`"
+    REMOTE_PATH="`      uci get schnapps.remote.path        2> /dev/null`"
 fi
 
 if [ "x$1" == "x-d" ]; then
@@ -90,8 +95,12 @@ show_help() {
     echo "                          Numbers can be found via list command"
     echo "                          Shows even diffs of individual files"
     echo
-    echo "  export snapshot path    Export snapshot as a medkit into specified directory"
-    echo "                          Snapshot argument can be snapshot number or 'current' to backup running system"
+    echo "  export [snapshot] path  Export snapshot as a medkit into specified directory"
+    echo "                          Snapshot argument can be snapshot number or ommited to backup running system"
+    echo
+    echo "  upload [snapshot] [[url] [path]]"
+    echo "                          Upload snapshot as a medkit into specified folder on WebDAV server"
+    echo "                          Snapshot argument can be snapshot number or ommited to backup running system"
     echo
     echo "  import path/snpsht.info Import exported snapshot"
     echo
@@ -488,7 +497,7 @@ export_sn() {
         *Omnia*)
             BOARD="omnia"
             ;;
-        *MOX*)
+        *M[Oo][Xx]*)
             BOARD="mox"
             ;;
         *)
@@ -502,8 +511,9 @@ export_sn() {
         shift
     else
         NUMBER=""
-        NAME="$(date +%Y%m%d)"
+        NAME=""
     fi
+    [ -n "$NAME" ] || NAME="$(date +%Y%m%d)"
     TRG_PATH="$1"
     if [ $# -ne 1 ] || [ \! -d "$TMP_MNT_DIR"/@"$NUMBER" ] || [ \! -d "$TRG_PATH" ]; then
         echo "Export takes target directory as argument!"
@@ -515,14 +525,67 @@ export_sn() {
     if tar -C "$TMP_MNT_DIR"/@$NUMBER --numeric-owner --one-file-system -cpzvf "$TAR" .; then
         [ \! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
         if [ -n "$NUMBER" ]; then
-            echo "Snapshot $NUMBER was exported into $TRG_PATH as omnia-medkit-$NAME"
+            echo "Snapshot $NUMBER was exported into $TRG_PATH as $BOARD-medkit-$NAME"
         else
-            echo "Current system was exported into $TRG_PATH as omnia-medkit-$NAME"
+            echo "Current system was exported into $TRG_PATH as $BOARD-medkit-$NAME"
         fi
     else
         echo "Snapshot export failed!"
         ERR=6
     fi
+}
+
+webdav_mount() {
+    FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|webdav://|https://|')"
+    [ -n "`which mount.davfs`" ] || die "davfs is not available"
+    mount -t davfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR"
+}
+
+remote_mount() {
+    mkdir -p "$TMP_RMT_MNT_DIR"
+    case "$REMOTE_URL" in
+        nextcloud://*)
+            REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|nextcloud://|webdav://|' -e 's|/*$|/remote.php/webdav/|')"
+            webdav_mount
+            ;;
+        webdav://*)
+            webdav_mount
+            ;;
+        ssh://*)
+            FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|ssh://||')"
+            [ -n "`which sshfs`" ] || die "sshfs is not available"
+            sshfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR"
+            ;;
+        *) die "Invalid URL" ;;
+    esac
+}
+
+remote_unmount() {
+    case "$REMOTE_URL" in
+        nextcloud://*)
+            umount -fl "$TMP_RMT_MNT_DIR" 2> /dev/null
+            ;;
+        webdav://*)
+            umount -fl "$TMP_RMT_MNT_DIR" 2> /dev/null
+            ;;
+        ssh://*)
+            fusermount -uz "$TMP_RMT_MNT_DIR" 2> /dev/null
+            ;;
+        *) die "Invalid URL" ;;
+    esac
+}
+
+upload() {
+    NUM=""
+    if expr "$1" : '[0-9]*$' > /dev/null; then
+        NUM="$1"
+        shift
+    fi
+    [ -z "$1" ] || { REMOTE_URL="$1"; shift; }
+    [ -z "$1" ] || { REMOTE_PATH="$1"; shift; }
+    remote_mount
+    export_sn "$NUM" "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"
+    remote_unmount
 }
 
 import_sn() {
@@ -566,7 +629,7 @@ import_sn() {
 }
 
 mount_root
-trap 'umount_root; exit "$ERR"' EXIT INT QUIT TERM ABRT
+trap 'umount_root; remote_unmount; exit "$ERR"' EXIT INT QUIT TERM ABRT
 command="$1"
 shift
 case $command in
@@ -578,6 +641,9 @@ case $command in
         ;;
     export)
         export_sn "$@"
+        ;;
+    upload)
+        upload "$@"
         ;;
     import)
         import_sn "$@"
