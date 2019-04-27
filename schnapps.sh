@@ -562,7 +562,7 @@ export_sn() {
 webdav_mount() {
     FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|webdav://|https://|')"
     [ -n "`which mount.davfs`" ] || die "davfs is not available"
-    mount -t davfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR"
+    mount.davfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR"
 }
 
 remote_mount() {
