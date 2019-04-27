@@ -502,10 +502,10 @@ tar_it() {
         chmod -R 0700 /tmp/schnapps-gpg
         export GNUPGHOME=/tmp/schnapps-gpg/home
         echo "$GPG_PASS" > /tmp/schnapps-gpg/pass
-        tar -C "$1" --numeric-owner --one-file-system -cpvf - . \
+        tar -C "$1" --numeric-owner --one-file-system -cpvf "$2".gpg . \
         --use-compress-program="gzip -c - | gpg  \
         --batch --yes --passphrase-file /tmp/schnapps-gpg/pass \
-        --cipher-algo=AES256 -c" > "$2".gpg
+        --cipher-algo=AES256 -c"
         ret="$?"
         rm -rf /tmp/schnapps-gpg
         return $ret
