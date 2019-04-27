@@ -610,7 +610,7 @@ upload() {
     [ -z "$1" ] || { REMOTE_PATH="$1"; shift; }
     expr "$REMOTE_PATH" : '/' > /dev/null || REMOTE_PATH="/$REMOTE_PATH"
     remote_mount
-    export_sn "$NUM" "$TMP_RMT_MNT_DIR""$REMOTE_PATH"
+    export_sn "$NUM" "$TMP_RMT_MNT_DIR""$REMOTE_PATH" | sed "s|^\\([^.].*exported.*\\)$TMP_RMT_MNT_DIR|\\1$REMOTE_URL|"
     remote_unmount
 }
 
