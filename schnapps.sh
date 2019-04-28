@@ -61,6 +61,10 @@ show_help() {
     echo "      Options:"
     echo "          -j              Output in json format"
     echo
+    echo "  rlist [opts]            Show uploaded snapshots"
+    echo "      Options:"
+    echo "          -j              Output in json format"
+    echo
     echo "  cleanup [--compare]     Deletes old snapshots and keeps only N newest"
     echo "                          You can set number of snapshots to keep in /etc/config/schnapps"
     echo "                          Current value of N is following for various types (-1 means infinite):"
@@ -171,53 +175,68 @@ round_output() {
     echo -n "$OUTPUT"
 }
 
+TBL_NUM=5
+TBL_TPE=10
+TBL_DATE=28
+TBL_DESC=35
 table_put() {
-    round_output "$1"  5 R
+    round_output "$1" $TBL_NUM R
     echo -n "|"
-    round_output "$2" 10
+    round_output "$2" $TBL_TPE
     echo -n "|"
-    round_output "$3" 26
+    round_output "$3" $TBL_DATE
     echo -n "| "
     echo "$4"
 }
 
 table_separator() {
-    round_output "-"  5 R  "-"
+    round_output "-" $TBL_NUM R  "-"
     echo -n "+"
-    round_output "-" 10 "" "-"
+    round_output "-" $TBL_TPE "" "-"
     echo -n "+"
-    round_output "-" 26 "" "-"
+    round_output "-" $TBL_DATE "" "-"
     echo -n "+"
-    round_output "-" 32 "" "-"
+    round_output "-" $TBL_DESC "" "-"
     echo ""
 }
 
-list() {
-    [ "x$1" \!= x-j ]
-    cd "$TMP_MNT_DIR"
-    if [ "x$1" \!= x-j ]; then
+generic_list() {
+    JSON=""
+    if [ "x$1" = x-j ]; then
+        JSON="y"
+    fi
+    shift
+    cd "$1"
+    if [ -z "$JSON" ]; then
         table_put "#" Type Date Description
         table_separator
     else
         echo -n '{ "snapshots": [ '
     fi
     FIRST="YES"
-    for i in `btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n`; do
-        CREATED="`btrfs subvolume show "$TMP_MNT_DIR"/@$i | sed -n 's|.*Creation time:[[:blank:]]*||p'`"
+    for i in $(ls -1 "$1"/*.info | sed 's|.*/\([^/]*\).info|\1|' | sort -n); do
+        CREATED=""
         DESCRIPTION=""
         TYPE="single"
-        [ \! -f "$TMP_MNT_DIR"/$i.info ] || . "$TMP_MNT_DIR"/$i.info
-        if [ "x$1" \!= x-j ]; then
-            table_put "$i" "$TYPE" "$CREATED" "$DESCRIPTION"
+        NUM="$i"
+        # TODO: Maybe make sure to read only data we are interested in just in
+        #       case somebody was tampering with our data file
+        . "$1/$i.info"
+        if [ -z "$JSON" ]; then
+            table_put "$NUM" "$TYPE" "$CREATED" "$DESCRIPTION"
         else
             [ -n "$FIRST" ] || echo -n ", "
-            echo -n "{ \"number\": $i, \"type\": \"$TYPE\", \"created\": \"$CREATED\", \"description\": \""
+            echo -n "{ \"number\": $NUM, \"type\": \"$TYPE\", \"created\": \"$CREATED\", \"description\": \""
             echo -n "$(echo "$DESCRIPTION" | sed 's|\("\\\)|\\\1|g')"
             echo -n '" }'
             FIRST=""
         fi
     done
     [ "x$1" \!= x-j ] || echo " ] }"
+}
+
+list() {
+    generic_list "$1" "$TMP_MNT_DIR"
 }
 
 get_next_number() {
@@ -611,8 +630,14 @@ upload() {
     expr "$REMOTE_PATH" : '/' > /dev/null || REMOTE_PATH="/$REMOTE_PATH"
     remote_mount
     export_sn "$NUM" "$TMP_RMT_MNT_DIR""$REMOTE_PATH" | sed "s|^\\([^.].*exported.*\\)$TMP_RMT_MNT_DIR|\\1$REMOTE_URL|"
-    remote_unmount
 }
+
+remote_list() {
+    remote_mount
+    TBL_NUM=20
+    generic_list "$1" "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"
+}
+
 
 import_sn() {
     if [ "x-f" = "x$1" ]; then
@@ -676,6 +701,9 @@ case $command in
         ;;
     list)
         list "$@"
+        ;;
+    rlist)
+        remote_list "$@"
         ;;
     cleanup)
         cleanup "$@"
