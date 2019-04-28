@@ -19,9 +19,12 @@
 TMP_MNT_DIR="/mnt/.snapshots"
 TMP_RMT_MNT_DIR="/mnt/.remote-snapshots"
 LOCK="/tmp/schnapps.lock"
+SYNC_TYPES="pre,post,timeline,single,rollback"
+DEFAULT_SYNC_TYPES="$SYNC_TYPES"
 ERR=0
 KEEP_MAX=""
 REMOTE_URL=""
+REMOTE_MOUNTED=""
 REMOTE_PATH=""
 GPG_PASS=""
 ROOT_DEV="$(btrfs fi show / | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p' | head -n 1)"
@@ -32,6 +35,9 @@ if [ -n "`which uci 2> /dev/null`" ]; then
     KEEP_MAX_ROLLBACK="`uci get schnapps.keep.max_rollback 2> /dev/null`"
     REMOTE_URL="`       uci get schnapps.remote.url        2> /dev/null`"
     REMOTE_PATH="`      uci get schnapps.remote.path       2> /dev/null`"
+    REMOTE_USER="`      uci get schnapps.remote.user       2> /dev/null`"
+    REMOTE_PASS="`      uci get schnapps.remote.password   2> /dev/null`"
+    SYNC_TYPES="`       uci get schnapps.remote.sync_types 2> /dev/null`"
     GPG_PASS="`         uci get schnapps.encrypt.pass      2> /dev/null`"
 fi
 
@@ -572,10 +578,22 @@ export_sn() {
 webdav_mount() {
     FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|webdav://|https://|')"
     [ -n "`which mount.davfs`" ] || die "davfs is not available"
-    mount.davfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" || die "Can't access remoe filesystem"
+    mkdir -p /tmp/.schnapps-dav
+    touch /tmp/.schnapps-dav/config
+    touch /tmp/.schnapps-dav/secret
+    chown -R root:root /tmp/.schnapps-dav
+    chmod 0700 /tmp/.schnapps-dav
+    chmod 0600 /tmp/.schnapps-dav/*
+    cat > /tmp/.schnapps-dav/config << EOF
+use_locks 0
+secrets /tmp/.schnapps-dav/secret
+EOF
+    echo "$FINAL_REMOTE_URL $REMOTE_USER $REMOTE_PASS" > /tmp/.schnapps-dav/secret
+    mount.davfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" -o dir_mode=0700,file_mode=0600,uid=root,gid=root,conf=/tmp/.schnapps-dav/config || die "Can't access remote filesystem"
 }
 
 remote_mount() {
+    [ -z "$REMOTE_MOUNTED" ] || return
     mkdir -p "$TMP_RMT_MNT_DIR"
     case "$REMOTE_URL" in
         nextcloud://*)
@@ -593,15 +611,19 @@ remote_mount() {
             ;;
         *) die "Invalid URL" ;;
     esac
+    REMOTE_MOUNTED="yes"
 }
 
 remote_unmount() {
+    [ -n "$REMOTE_MOUNTED" ] || return
     case "$REMOTE_URL" in
         nextcloud://*)
             umount -fl "$TMP_RMT_MNT_DIR" 2> /dev/null
+            rm -rf /tmp/.schnapps-dav
             ;;
         webdav://*)
             umount -fl "$TMP_RMT_MNT_DIR" 2> /dev/null
+            rm -rf /tmp/.schnapps-dav
             ;;
         ssh://*)
             fusermount -uz "$TMP_RMT_MNT_DIR" 2> /dev/null
@@ -626,17 +648,16 @@ upload() {
 sync_snps() {
     remote_mount
     if [ "x$1" = "x-t" ]; then
-        TYPES="$2"
-    else
-        TYPES="pre,post,timeline,single,rollback"
+        SYNC_TYPES="$2"
+        [ "$2" \!= all ] || SYNC_TYPES="$DEFAULT_SYNC_TYPES"
     fi
     get_board
     NUMS="$(ls -1 "$TMP_MNT_DIR"/*.info | sed 's|.*/\([0-9]*\).info$|\1|')"
     RM_NUMS="$(ls -1 "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/*.info | sed 's|.*/.*-\([0-9]*\).info$|\1|')"
     for i in $NUMS; do
         . "$TMP_MNT_DIR"/"$i".info
-        if expr "$TYPES" : ".*$TYPE.*" > /dev/null; then
-            [ -f "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$i.info" ] || uload "$i"
+        if expr "$SYNC_TYPES" : ".*$TYPE.*" > /dev/null; then
+            [ -f "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$i.info" ] || upload "$i"
         fi
         RM_NUMS="$(echo "$RM_NUMS" | grep -v "^$i\$")"
     done
