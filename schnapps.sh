@@ -143,7 +143,8 @@ mount_root() {
         echo "ERROR: Something is already in '$TMP_MNT_DIR'"
         exit 2
     fi
-    mount "$ROOT_DEV" -o subvol=/ "$TMP_MNT_DIR"
+    mount "$ROOT_DEV" -o subvol=/ "$TMP_MNT_DIR" || die "Can't mount root partition"
+    btrfs quota enable "$TMP_MNT_DIR"
 }
 
 mount_snp() {
@@ -195,6 +196,7 @@ round_output() {
 
 TBL_NUM=5
 TBL_TPE=10
+TBL_SIZE=12
 TBL_DATE=28
 TBL_DESC=35
 table_put() {
@@ -202,15 +204,19 @@ table_put() {
     echo -n "|"
     round_output "$2" $TBL_TPE
     echo -n "|"
-    round_output "$3" $TBL_DATE
+    round_output "$3" $TBL_SIZE $SIZE_AL
+    echo -n "|"
+    round_output "$4" $TBL_DATE
     echo -n "| "
-    echo "$4"
+    echo "$5"
 }
 
 table_separator() {
     round_output "-" $TBL_NUM R  "-"
     echo -n "+"
     round_output "-" $TBL_TPE "" "-"
+    echo -n "+"
+    round_output "-" $TBL_SIZE "" "-"
     echo -n "+"
     round_output "-" $TBL_DATE "" "-"
     echo -n "+"
@@ -226,7 +232,8 @@ generic_list() {
     shift
     cd "$1"
     if [ -z "$JSON" ]; then
-        table_put "#" Type Date Description
+        table_put "#" Type Size Date Description
+        SIZE_AL=R
         table_separator
     else
         echo -n '{ "snapshots": [ '
@@ -237,14 +244,18 @@ generic_list() {
         DESCRIPTION=""
         TYPE="single"
         NUM="$i"
+        SIZE=""
         # TODO: Maybe make sure to read only data we are interested in just in
         #       case somebody was tampering with our data file
         . "$1/$i.info"
+        [ \! -d "$1/@$i" ] || SIZE="$(btrfs qgroup show -f "$1/@$i" | sed -n 's|.*[[:blank:]]\([0-9.MGKi]*B\)[[:blank:]]*$|\1|p')"
+        [ \! -f "$1/$i".tar.gz ] || SIZE="$(du -sh "$1/$i".tar.gz | sed 's|[[:blank:]].*||')"
+        [ \! -f "$1/$i".tar.gz.pgp ] || SIZE="$(du -sh "$1/$i".tar.gz.pgp | sed 's|[[:blank:]].*||')"
         if [ -z "$JSON" ]; then
-            table_put "$NUM" "$TYPE" "$CREATED" "$DESCRIPTION"
+            table_put "$NUM" "$TYPE" "$SIZE" "$CREATED" "$DESCRIPTION"
         else
             [ -n "$FIRST" ] || echo -n ", "
-            echo -n "{ \"number\": $NUM, \"type\": \"$TYPE\", \"created\": \"$CREATED\", \"description\": \""
+            echo -n "{ \"number\": $NUM, \"type\": \"$TYPE\", \"size\": \"$SIZE\", \"created\": \"$CREATED\", \"description\": \""
             echo -n "$(echo "$DESCRIPTION" | sed 's|\("\\\)|\\\1|g')"
             echo -n '" }'
             FIRST=""
