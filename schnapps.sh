@@ -113,6 +113,8 @@ show_help() {
     echo "                          Upload snapshot as a medkit into specified folder on WebDAV server"
     echo "                          Snapshot argument can be snapshot number or ommited to backup running system"
     echo
+    echo "  sync [-t type,type]     Make sure that all snapshots of specified type are backuped on the server."
+    echo
     echo "  import path/snpsht.info Import exported snapshot"
     echo
 }
@@ -522,7 +524,7 @@ tar_it() {
     fi
 }
 
-export_sn() {
+get_board() {
     case "$(cat /sys/firmware/devicetree/base/model 2> /dev/null)" in
         *Omnia*)
             BOARD="omnia"
@@ -534,6 +536,10 @@ export_sn() {
             BOARD="schnapps"
             ;;
     esac
+}
+
+export_sn() {
+    get_board
     [ "$1" \!= current ] || shift
     if [ $# -eq 2 ]; then
         NAME="$1"
@@ -617,6 +623,30 @@ upload() {
     export_sn "$NUM" "$TMP_RMT_MNT_DIR""$REMOTE_PATH" | sed "s|^\\([^.].*exported.*\\)$TMP_RMT_MNT_DIR|\\1$REMOTE_URL|"
 }
 
+sync_snps() {
+    remote_mount
+    if [ "x$1" = "x-t" ]; then
+        TYPES="$2"
+    else
+        TYPES="pre,post,timeline,single,rollback"
+    fi
+    get_board
+    NUMS="$(ls -1 "$TMP_MNT_DIR"/*.info | sed 's|.*/\([0-9]*\).info$|\1|')"
+    RM_NUMS="$(ls -1 "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/*.info | sed 's|.*/.*-\([0-9]*\).info$|\1|')"
+    for i in $NUMS; do
+        . "$TMP_MNT_DIR"/"$i".info
+        if expr "$TYPES" : ".*$TYPE.*" > /dev/null; then
+            [ -f "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$i.info" ] || uload "$i"
+        fi
+        RM_NUMS="$(echo "$RM_NUMS" | grep -v "^$i\$")"
+    done
+    for i in $RM_NUMS; do
+        rm -f "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$i.info" \
+              "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$i.tar.gz" \
+              "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$i.tar.gz.pgp"
+    done
+}
+
 remote_list() {
     remote_mount
     TBL_NUM=20
@@ -689,6 +719,9 @@ case $command in
         ;;
     cleanup)
         cleanup "$@"
+        ;;
+    sync)
+        sync_snps "$@"
         ;;
     delete)
         for i in "$@"; do
