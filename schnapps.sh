@@ -48,6 +48,11 @@ ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
 [ -n "$KEEP_MAX_UPDATER"     ] || KEEP_MAX_UPDATER=-1
 [ -n "$KEEP_MAX_ROLLBACK"    ] || KEEP_MAX_ROLLBACK=-1
 
+die() {
+    echo "$@" >&2
+    exit 1
+}
+
 show_help() {
     echo "Usage: `basename $0` [-d root] command [options]"
     echo ""
