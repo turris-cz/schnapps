@@ -117,6 +117,13 @@ show_help() {
     echo
 }
 
+die_helping() {
+    echo "$@" >&2
+    echo
+    show_help
+    exit 1
+}
+
 mount_root() {
     if ! mkdir "$LOCK"; then
         echo "Another instance seems to be running!"
@@ -134,15 +141,13 @@ mount_root() {
 mount_snp() {
     mkdir -p /mnt/snapshot-@$1
     if [ -n "`ls -A "/mnt/snapshot-@$1"`" ]; then
-        echo "ERROR: Something is already in '/mnt/snapshot-@$1'"
-        exit 2
+        die "ERROR: Something is already in '/mnt/snapshot-@$1'"
     fi
     if mount "$ROOT_DEV" -o subvol=/@$1 /mnt/snapshot-@$1; then
         echo "Snapshot $1 mounted in /mnt/snapshot-@$1"
     else
-        echo "ERROR: Can't mount snapshot $1"
         rmdir /mnt/snapshot-@$1
-        ERR=5
+        die "ERROR: Can't mount snapshot $1"
     fi
 }
 
@@ -261,10 +266,7 @@ create() {
         if   [ "x$1" = "x-t" ]; then
             shift
             if [ "$1" \!= pre ] && [ "$1" \!= post ] && [ "$1" \!= time ] && [ "$1" \!= single ]; then
-                echo "Incorrect snapshot type - '$1'"
-                echo
-                show_help
-                return
+                die_helping "Incorrect snapshot type - '$1'"
             fi
             TYPE="$1"
             shift
@@ -282,8 +284,7 @@ create() {
         echo "CREATED=\"`date "+%Y-%m-%d %H:%M:%S %z"`\"" >> "$TMP_MNT_DIR"/$NUMBER.info
         echo "Snapshot number $NUMBER created"
     else
-        echo "Error creating new snapshot"
-        ERR=4
+        die "Error creating new snapshot"
     fi
 }
 
@@ -291,9 +292,7 @@ modify() {
     NUMBER="$1"
     shift
     if [ \! -d "$TMP_MNT_DIR"/@$NUMBER ]; then
-        echo "Snapshot number $NUMBER does not exists!"
-        ERR=3
-        return
+        die "Snapshot number $NUMBER does not exists!"
     fi
     TYPE="single"
     DESCRIPTION="User created snapshot"
@@ -302,10 +301,7 @@ modify() {
         if   [ "x$1" = "x-t" ]; then
             shift
             if [ "$1" \!= pre ] && [ "$1" \!= post ] && [ "$1" \!= time ] && [ "$1" \!= single ]; then
-                echo "Incorrect snapshot type - '$1'"
-                echo
-                show_help
-                return
+                die_helping "Incorrect snapshot type - '$1'"
             fi
             TYPE="$1"
             shift
@@ -314,11 +310,7 @@ modify() {
             DESCRIPTION="$1"
             shift
         else
-            echo "Unknown create option '$1'"
-            echo
-            show_help
-            ERR=1
-            return
+            die_helping "Unknown create option '$1'"
         fi
     done
     echo "TYPE=\"$TYPE\"" > "$TMP_MNT_DIR"/$NUMBER.info
@@ -330,25 +322,21 @@ modify() {
 delete() {
     NUMBER="$1"
     if [ \! -d "$TMP_MNT_DIR"/@$NUMBER ]; then
-        echo "Snapshot number $NUMBER does not exists!"
-        ERR=3
-        return
+        echo "WARNING: Snapshot number $NUMBER does not exists!"
+        return 1
     fi
     if btrfs subvolume delete -c "$TMP_MNT_DIR"/@$NUMBER > /dev/null; then
         rm -f "$TMP_MNT_DIR"/$NUMBER.info
         echo "Snapshot $NUMBER deleted."
     else
-        echo "Error deleting snapshot $NUMBER"
-        ERR=4
+        die "Error deleting snapshot $NUMBER"
     fi
 }
 
 rollback() {
     ROLL_TO="$1"
     if [ -n "$ROLL_TO" ] && [ \! -d "$TMP_MNT_DIR"/@$NUMBER ]; then
-        echo "Snapshot number $NUMBER does not exists!"
-        ERR=3
-        return
+        die "Snapshot number $NUMBER does not exists!"
     fi
     if [ -z "$ROLL_TO" ]; then
         SKIP_TO=""
@@ -368,9 +356,7 @@ rollback() {
     fi
     NUMBER="`get_next_number`"
     if ! mv "$TMP_MNT_DIR"/@ "$TMP_MNT_DIR"/@$NUMBER; then
-        echo "Can't make snapshot of current state"
-        ERR=4
-        return
+        die "Can't make snapshot of current state"
     fi
     echo "TYPE=\"rollback\"" > "$TMP_MNT_DIR"/$NUMBER.info
     echo "DESCRIPTION=\"Rollback to snapshot $ROLL_TO\"" >> "$TMP_MNT_DIR"/$NUMBER.info
@@ -390,8 +376,7 @@ rollback() {
     else
         rm -f "$TMP_MNT_DIR"/$NUMBER.info
         mv "$TMP_MNT_DIR"/@$NUMBER "$TMP_MNT_DIR"/@
-        echo "Rolling back failed!"
-        ERR=4
+        die "Rolling back failed!"
     fi
 }
 
@@ -496,13 +481,11 @@ snp_diff() {
 
 snp_status() {
     if [ \! -d "$TMP_MNT_DIR"/@$1 ]; then
-        echo "Snapshot number $1 does not exists!"
-        ERR=3
+        echo "WARNING: Snapshot number $1 does not exists!"
         return
     fi
     if [ \! -d "$TMP_MNT_DIR"/@$2 ]; then
-        echo "Snapshot number $2 does not exists!"
-        ERR=3
+        echo "WARNING: Snapshot number $2 does not exists!"
         return
     fi
     SNAME="$2"
@@ -564,9 +547,7 @@ export_sn() {
     TRG_PATH="$1"
 
     if [ $# -ne 1 ] || [ \! -d "$TMP_MNT_DIR"/@"$NUMBER" ] || [ \! -d "$TRG_PATH" ]; then
-        echo "Export takes target directory as argument!"
-        ERR=5
-        return
+        die "Export takes target directory as argument!"
     fi
     INFO="$TRG_PATH/$BOARD-medkit-$NAME.info"
     TAR="$TRG_PATH/$BOARD-medkit-$NAME.tar.gz"
@@ -578,15 +559,14 @@ export_sn() {
             echo "Current system was exported into $TRG_PATH as $BOARD-medkit-$NAME"
         fi
     else
-        echo "Snapshot export failed!"
-        ERR=6
+        die "Snapshot export failed!"
     fi
 }
 
 webdav_mount() {
     FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|webdav://|https://|')"
     [ -n "`which mount.davfs`" ] || die "davfs is not available"
-    mount.davfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR"
+    mount.davfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" || die "Can't access remoe filesystem"
 }
 
 remote_mount() {
@@ -654,9 +634,7 @@ import_sn() {
         TAR="$(echo "$INFO" | sed -n 's|.info$|.tar.gz|p')"
         if [ $# -ne 1 ] || [ \! -f "$INFO" ] || [ \! -f "$TAR" ]; then
             echo "Import takes one argument which is snapshot info file!"
-            echo "Actual tarball has to be next to it!"
-            ERR=5
-            return
+            die "Actual tarball has to be next to it!"
         fi
     fi
         
@@ -676,11 +654,10 @@ import_sn() {
             fi
         else
             btrfs subvolume delete "$TMP_MNT_DIR"/@$NUMBER
-            ERR=6
+            die "Tarball seems to be corrupted"
         fi
     else
-        echo "Error creating new snapshot"
-        ERR=4
+        die "Error creating new snapshot"
     fi
 }
 
@@ -728,10 +705,7 @@ case $command in
         ;;
     cmp)
         if [ $# -gt 2 ]; then
-            echo "Wrong number of arguments"
-            echo
-            ERR=3
-            show_help
+            die_helping "Wrong number of arguments"
         else
             LAST="$1"
             [ $# -gt 0 ]   || LAST="`btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n | tail -n 1`"
@@ -742,14 +716,10 @@ case $command in
     diff)
         if ! which diff > /dev/null; then
             echo "Utility diff not found!"
-            echo "Please install diffutils package"
-            exit 4
+            die "Please install diffutils package"
         fi
         if [ $# -gt 2 ]; then
-            echo "Wrong number of arguments"
-            echo
-            ERR=3
-            show_help
+            die_helping "Wrong number of arguments"
         else
             LAST="$1"
             [ $# -gt 0 ]   || LAST="`btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n | tail -n 1`"
@@ -761,10 +731,7 @@ case $command in
         show_help
         ;;
     *)
-        echo "Unknown command $command!"
-        echo
-        show_help
-        ERR=1
+        die_helping "Unknown command $command!"
         ;;
 esac
-exit $ERR
+exit 0
