@@ -572,8 +572,8 @@ export_sn() {
     if [ $# -ne 1 ] || [ \! -d "$TMP_MNT_DIR"/@"$NUMBER" ] || [ \! -d "$TRG_PATH" ]; then
         die "Export takes target directory as argument!"
     fi
-    INFO="$TRG_PATH/$BOARD-medkit-$NAME.info"
-    TAR="$TRG_PATH/$BOARD-medkit-$NAME.tar.gz"
+    INFO="$TRG_PATH/$BOARD-medkit-$HOSTNAME-$NAME.info"
+    TAR="$TRG_PATH/$BOARD-medkit-$HOSTNAME-$NAME.tar.gz"
     if tar_it "$TMP_MNT_DIR"/@$NUMBER "$TAR" .; then
         [ \! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
         if [ -n "$NUMBER" ]; then
@@ -664,18 +664,18 @@ sync_snps() {
     fi
     get_board
     NUMS="$(ls -1 "$TMP_MNT_DIR"/*.info | sed 's|.*/\([0-9]*\).info$|\1|')"
-    RM_NUMS="$(ls -1 "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/*.info | sed 's|.*/.*-\([0-9]*\).info$|\1|')"
+    RM_NUMS="$(ls -1 "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/*-medkit-$HOSTNAME-*.info 2> /dev/null | sed 's|.*/.*-\([0-9]*\).info$|\1|')"
     for i in $NUMS; do
         . "$TMP_MNT_DIR"/"$i".info
         if expr "$SYNC_TYPES" : ".*$TYPE.*" > /dev/null; then
-            [ -f "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$i.info" ] || upload "$i"
+            [ -f "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$HOSTNAME-$i.info" ] || upload "$i"
         fi
         RM_NUMS="$(echo "$RM_NUMS" | grep -v "^$i\$")"
     done
     for i in $RM_NUMS; do
-        rm -f "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$i.info" \
-              "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$i.tar.gz" \
-              "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$i.tar.gz.pgp"
+        rm -f "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$HOSTNAME-$i.info" \
+              "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$HOSTNAME-$i.tar.gz" \
+              "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"/"$BOARD-medkit-$HOSTNAME-$i.tar.gz.pgp"
     done
 }
 
