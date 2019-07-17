@@ -116,12 +116,12 @@ show_help() {
     echo "                          Snapshot argument can be snapshot number or ommited to backup running system"
     echo
     echo "  upload [snapshot] [[url] [path]]"
-    echo "                          Upload snapshot as a medkit into specified folder on WebDAV server"
+    echo "                          Upload snapshot as a medkit into specified folder on WebDAV, Nextcloud or SSH server"
     echo "                          Snapshot argument can be snapshot number or ommited to backup running system"
     echo
     echo "  sync [-t type,type]     Make sure that all snapshots of specified type are backuped on the server."
     echo
-    echo "  import path/snpsht.info Import exported snapshot"
+    echo "  import path             Import exported snapshot; path must point to .info file for the snapshot"
     echo
 }
 
