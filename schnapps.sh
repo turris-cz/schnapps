@@ -19,7 +19,7 @@
 TMP_MNT_DIR="/mnt/.snapshots"
 TMP_RMT_MNT_DIR="/mnt/.remote-snapshots"
 LOCK="/tmp/schnapps.lock"
-SYNC_TYPES="pre,post,timeline,single,rollback"
+SYNC_TYPES="pre,post,time,single,rollback"
 DEFAULT_SYNC_TYPES="$SYNC_TYPES"
 ERR=0
 KEEP_MAX=""
