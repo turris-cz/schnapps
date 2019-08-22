@@ -390,7 +390,7 @@ rollback() {
             done
         fi
         if [ -d "$TMP_MNT_DIR"/certbackup ]; then
-            cp -ra "$TMP_MNT_DIR"/certbackup/* "$TMP_MNT_DIR"/@
+            cp -ra "$TMP_MNT_DIR"/certbackup/* "$TMP_MNT_DIR"/@ 2> /dev/null >&2
         fi
     else
         rm -f "$TMP_MNT_DIR"/$NUMBER.info
