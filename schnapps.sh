@@ -418,6 +418,10 @@ my_status() {
 }
 
 cleanup() {
+    for info in "$TMP_MNT_DIR"/*.info; do
+        [ -f "$info" ] || continue
+        [ -d "$TMP_MNT_DIR/@`basename "$info" .info`" ] || rm "$info"
+    done
     if [ "x$1" = "x--compare" ]; then
         echo "Searching for snapshots without any change."
         echo "This can take a while, please be patient."
