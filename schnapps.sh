@@ -261,7 +261,7 @@ generic_list() {
             FIRST=""
         fi
     done
-    [ "x$1" \!= x-j ] || echo " ] }"
+    [ "$JSON" \!= "y" ] || echo " ] }"
 }
 
 list() {
