@@ -56,6 +56,7 @@ ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
 
 die() {
     echo "$@" >&2
+    ERR="${ERR:-1}"
     exit 1
 }
 
@@ -126,10 +127,9 @@ show_help() {
 }
 
 die_helping() {
-    echo "$@" >&2
-    echo
-    show_help
-    exit 1
+    die "$@" "
+
+`show_help`"
 }
 
 mount_root() {
