@@ -136,6 +136,14 @@ die_helping() {
 `show_help`"
 }
 
+DESCRIPTION_LIMIT=1024
+filter_description() {
+    echo -n "$1" \
+        | tr -c 'a-zA-Z0-9 .,?!()/;:<>-' '_' \
+        | head -c "$DESCRIPTION_LIMIT"
+    echo
+}
+
 mount_root() {
     if ! mkdir "$LOCK"; then
         echo "Another instance seems to be running!"
@@ -240,7 +248,7 @@ generic_list() {
         SIZE_AL=R
         table_separator
     else
-        echo -n '{ "snapshots": [ '
+        echo '{ "snapshots": ['
     fi
     FIRST="YES"
     SNAPSHOTS=$(ls -1 "$1" | grep -E "^[0-9]+[.]info$" | sed 's|[.]info||' | sort -n)
@@ -253,6 +261,7 @@ generic_list() {
         # TODO: Maybe make sure to read only data we are interested in just in
         #       case somebody was tampering with our data file
         . "$1/$i.info"
+        DESCRIPTION="$(filter_description "$DESCRIPTION")"
         [ \! -d "$1/@$i" ] || SIZE="$(btrfs qgroup show -f "$1/@$i" | sed -n 's|.*[[:blank:]]\([0-9.MGKi]*B\)[[:blank:]]*$|\1|p')"
         [ \! -f "$1/$i".tar.gz ] || SIZE="$(du -sh "$1/$i".tar.gz | sed 's|[[:blank:]].*||')"
         [ \! -f "$1/$i".tar.gz.pgp ] || SIZE="$(du -sh "$1/$i".tar.gz.pgp | sed 's|[[:blank:]].*||')"
@@ -260,9 +269,7 @@ generic_list() {
             table_put "$NUM" "$TYPE" "$SIZE" "$CREATED" "$DESCRIPTION"
         else
             [ -n "$FIRST" ] || echo -n ", "
-            echo -n "{ \"number\": $NUM, \"type\": \"$TYPE\", \"size\": \"$SIZE\", \"created\": \"$CREATED\", \"description\": \""
-            echo -n "$(echo "$DESCRIPTION" | sed 's|\("\\\)|\\\1|g')"
-            echo -n '" }'
+            echo "{ \"number\": $NUM, \"type\": \"$TYPE\", \"size\": \"$SIZE\", \"created\": \"$CREATED\", \"description\": \"$DESCRIPTION\" }"
             FIRST=""
         fi
     done
@@ -301,6 +308,12 @@ create() {
         fi
     done
     [ -n "$DESCRIPTION" ] || DESCRIPTION="User created snapshot"
+    OLD_DESCRIPTION="$DESCRIPTION"
+    DESCRIPTION="$(filter_description "$DESCRIPTION")"
+    if [ "$DESCRIPTION" != "$OLD_DESCRIPTION" ]; then
+        echo "Description modified to '$DESCRIPTION' as it contained unsupported characters or was too long" >&2
+    fi
+
     NUMBER="`get_next_number`"
     if btrfs subvolume snapshot "$TMP_MNT_DIR"/@ "$TMP_MNT_DIR"/@$NUMBER > /dev/null; then
         echo "TYPE=\"$TYPE\"" > "$TMP_MNT_DIR"/$NUMBER.info
