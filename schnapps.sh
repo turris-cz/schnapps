@@ -700,7 +700,7 @@ import_sn() {
             die "Actual tarball has to be next to it!"
         fi
     fi
-        
+
     NUMBER="`get_next_number`"
     if btrfs subvolume create "$TMP_MNT_DIR"/@$NUMBER > /dev/null; then
         if tar -C "$TMP_MNT_DIR"/@$NUMBER --numeric-owner -xpzvf "$TAR"; then
