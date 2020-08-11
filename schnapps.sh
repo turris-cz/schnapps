@@ -118,7 +118,9 @@ show_help() {
     echo
     echo "  upload [snapshot] [[url] [path]]"
     echo "                          Upload snapshot as a medkit into specified folder on WebDAV, Nextcloud or SSH server"
-    echo "                          Snapshot argument can be snapshot number or ommited to backup running system"
+    echo "                          Snapshot argument can be snapshot number or ommited to backup running system."
+    echo "                          If the URL for SSH contains a relative path (no leading slash) or no path"
+    echo "                          the path specified separately is treated relatively to the login directory."
     echo
     echo "  sync [-t type,type]     Make sure that all snapshots of specified type are backuped on the server."
     echo
@@ -575,12 +577,16 @@ export_sn() {
     fi
     INFO="$TRG_PATH/$BOARD-medkit-$HOSTNAME-$NAME.info"
     TAR="$TRG_PATH/$BOARD-medkit-$HOSTNAME-$NAME.tar.gz"
+    if [ -z "$REMOTE_PATH" ]; then
+        REMOTE_PATH="localhost"
+        REMOTE_URL="$TRG_PATH"
+    fi
     if tar_it "$TMP_MNT_DIR"/@$NUMBER "$TAR" .; then
         [ \! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
         if [ -n "$NUMBER" ]; then
-            echo "Snapshot $NUMBER was exported into $TRG_PATH as $BOARD-medkit-$NAME"
+            echo "Snapshot $NUMBER was exported into $REMOTE_PATH on $REMOTE_URL as $BOARD-medkit-$NAME"
         else
-            echo "Current system was exported into $TRG_PATH as $BOARD-medkit-$NAME"
+            echo "Current system was exported into $REMOTE_PATH on $REMOTE_URL as $BOARD-medkit-$NAME"
         fi
     else
         die "Snapshot export failed!"
@@ -616,7 +622,7 @@ remote_mount() {
             webdav_mount
             ;;
         ssh://*)
-            FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|ssh://||')"
+            FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|ssh://||' | sed -e 's|\:*\(\/.*\)|:\1|')"
             expr "$FINAL_REMOTE_URL" : '.*:' > /dev/null || FINAL_REMOTE_URL="$FINAL_REMOTE_URL:"
             [ -n "`which sshfs`" ] || die "sshfs is not available"
             sshfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR"
