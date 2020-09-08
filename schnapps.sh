@@ -241,7 +241,8 @@ generic_list() {
         echo -n '{ "snapshots": [ '
     fi
     FIRST="YES"
-    for i in $(ls -1 "$1"/*.info | sed 's|.*/\([^/]*\).info|\1|' | sort -n); do
+    SNAPSHOTS=$(ls -1 "$1" | grep -E "^[0-9]+[.]info$" | sed 's|[.]info||' | sort -n)
+    for i in $SNAPSHOTS; do
         CREATED=""
         DESCRIPTION=""
         TYPE="single"
