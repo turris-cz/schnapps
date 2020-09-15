@@ -347,6 +347,10 @@ delete() {
         echo "WARNING: Snapshot number $NUMBER does not exists!"
         return 1
     fi
+    # Recursively remove all subvolumes to ensure removal of snapshot
+    btrfs subvolume list -o "$TMP_MNT_DIR/@$NUMBER" | sed -n "s|^.*path @$NUMBER/||p" | while read subvol; do
+        btrfs subvolume delete -c "$TMP_MNT_DIR/@$NUMBER/$subvol"
+    done
     if btrfs subvolume delete -c "$TMP_MNT_DIR"/@$NUMBER > /dev/null; then
         rm -f "$TMP_MNT_DIR"/$NUMBER.info
         echo "Snapshot $NUMBER deleted."
