@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Btrfs snapshots managing script
-# (C) 2016-2018 CZ.NIC, z.s.p.o.
+# (C) 2016-2020 CZ.NIC, z.s.p.o.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@ LOCK="/tmp/schnapps.lock"
 SYNC_TYPES="pre,post,time,single,rollback"
 DEFAULT_SYNC_TYPES="$SYNC_TYPES"
 ERR=0
+TMP_DIR=""
 KEEP_MAX=""
 REMOTE_URL=""
 REMOTE_MOUNTED=""
@@ -697,11 +698,38 @@ remote_list() {
     generic_list "$1" "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"
 }
 
+mk_tmp_dir() {
+    [ -z "$TEMP_DIR" ] || return
+    TEMP_DIR="$(mktemp -d)"
+	[ -n "$TEMP_DIR" ] || die "Can't create a temp dir"
+}
+
+download_tar() {
+    mk_tmp_dir
+    local tmpdir="$TEMP_DIR/tar_download"
+	mkdir -p "$tmpdir"
+    [ -d "$tmpdir" ] || die "Can't create a tmp directory"
+    local tar="$tmpdir/factory.tar.gz"
+    wget -O "$tar" "$1" || die "Can't donwload '$1'"
+    for sum in md5 sha256; do
+        if wget -O "$tar"."$sum" "$1"."$sum"; then
+            (cd "$tmpdir"; "$sum"sum -c "$tar"."$sum" || die "Checksum doesn't match for '$1'")
+        else
+            rm -f "$tar"."$sum"
+        fi
+    done >&2
+	echo "$tar"
+}
 
 import_sn() {
     if [ "x-f" = "x$1" ]; then
         shift
-        TAR="$1"
+		case "$1" in
+			https://*) TAR="$(download_tar)";;
+			file://*)  TAR="${1#file://}";;
+			*://*)     die "Url $1 is not supported!";;
+			*)         TAR="$1";;
+		esac
         INFO=""
     else
         INFO="$1"
@@ -735,8 +763,16 @@ import_sn() {
     fi
 }
 
+cleanup() {
+    umount_root
+    remote_unmount
+    [ -z "$TEMP_DIR" ] || rm -rf "$TEMP_DIR"
+    exit "$ERR"
+}
+
 mount_root
-trap 'umount_root; remote_unmount; exit "$ERR"' EXIT INT QUIT TERM ABRT
+trap 'cleanup' EXIT INT QUIT TERM ABRT
+
 command="$1"
 shift
 case $command in
