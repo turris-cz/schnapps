@@ -42,12 +42,13 @@ if [ -n "`which uci 2> /dev/null`" ]; then
     GPG_PASS="`         uci get schnapps.encrypt.pass      2> /dev/null`"
 fi
 
+[ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
+
 if [ "x$1" == "x-d" ]; then
     ROOT_DEV="$(btrfs fi show $2 | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p')"
     shift 2
 fi
 
-[ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
 ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
 [ -z "$ROOT_LABEL" ] || [ \! -f /etc/schnapps/"$ROOT_LABEL" ] || . /etc/schnapps/"$ROOT_LABEL"
 [ -n "$KEEP_MAX_SINGLE"      ] || KEEP_MAX_SINGLE=-1
