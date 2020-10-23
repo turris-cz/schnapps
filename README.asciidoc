@@ -1,0 +1,8 @@
+Schnapps
+========
+
+Simple tool to manage Btrfs snapshots. Developed primarily to manage root
+filesystem on Turris routers, but works on any Linux system. Written in shell.
+Detailed documentation is available on Turris documentation page.
+
+https://docs.turris.cz/geek/schnapps/schnapps/
