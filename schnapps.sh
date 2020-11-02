@@ -784,8 +784,8 @@ cleanup() {
     exit "$ERR"
 }
 
-mount_root
 trap 'cleanup' EXIT INT QUIT TERM ABRT
+mount_root
 
 command="$1"
 shift
