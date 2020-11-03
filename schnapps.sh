@@ -18,6 +18,7 @@
 
 TMP_MNT_DIR="/mnt/.snapshots"
 TMP_RMT_MNT_DIR="/mnt/.remote-snapshots"
+ATQ="s" # 'at' queue to use
 LOCK="/tmp/schnapps.lock"
 SYNC_TYPES="pre,post,time,single,rollback"
 DEFAULT_SYNC_TYPES="$SYNC_TYPES"
@@ -89,8 +90,10 @@ show_help() {
     echo "                          With --compare option also deletes snapshots that doesn't differ from"
     echo "                          the previous one"
     echo
-    echo "  delete <number> [...]   Deletes snapshot corresponding to the number(s)"
+    echo "  delete <what> [...]     Deletes corresponding snapshots"
+    echo "                          Argument can be either snapshot number or type specification"
     echo "                          Numbers can be found via list command"
+    echo "                          Type can be specified by '-t type' to delete all snapshots of specific type."
     echo
     echo "  modify <number> [opts]  Modify metadata of snapshot corresponding to the number"
     echo "                          Numbers can be found via list command"
@@ -102,6 +105,12 @@ show_help() {
     echo "  rollback [number]       Make snapshot corresponding to the number default for next boot"
     echo "                          If called without any argument, go one step back"
     echo "                          Numbers can be found via list command"
+    echo
+    echo "  savepoint [minutes]     Create snapshot and rollback to it in specified time unless committed"
+    echo "                          Default is 10 minutes. Subsequent calls to savepoint function will commit"
+    echo "                          the current state and reschedule the reboot."
+    echo
+    echo "  commit                  Abort scheduled rollbacks and delete all savepoints."
     echo
     echo "  mount <number> [...]    Mount snapshot corresponding to the number(s)"
     echo "                          You can then browse it and you have to umount it manually"
@@ -126,7 +135,7 @@ show_help() {
     echo "                          If the URL for SSH contains a relative path (no leading slash) or no path"
     echo "                          the path specified separately is treated relatively to the login directory."
     echo
-    echo "  sync [-t type,type]     Make sure that all snapshots of specified type are backuped on the server."
+    echo "  sync [-t type,type]     Make sure that all snapshots of specified type are backed up on the server."
     echo
     echo "  import path             Import exported snapshot; path must point to .info file for the snapshot"
     echo
@@ -295,10 +304,14 @@ get_next_number() {
 create() {
     DESCRIPTION=""
     TYPE="single"
+    NUMERIC=""
     while [ -n "$1" ]; do
-        if   [ "x$1" = "x-t" ]; then
+        if   [ "$1" = "-n" ]; then
+            NUMERIC="y"
             shift
-            if [ "$1" \!= pre ] && [ "$1" \!= post ] && [ "$1" \!= time ] && [ "$1" \!= single ]; then
+        elif   [ "$1" = "-t" ]; then
+            shift
+            if echo "$1" | grep -vqE '^(pre|post|time|single|save)$'; then
                 die_helping "Incorrect snapshot type - '$1'"
             fi
             TYPE="$1"
@@ -321,7 +334,11 @@ create() {
         echo "TYPE=\"$TYPE\"" > "$TMP_MNT_DIR"/$NUMBER.info
         echo "DESCRIPTION=\"$DESCRIPTION\"" >> "$TMP_MNT_DIR"/$NUMBER.info
         echo "CREATED=\"`date "+%Y-%m-%d %H:%M:%S %z"`\"" >> "$TMP_MNT_DIR"/$NUMBER.info
-        echo "Snapshot number $NUMBER created"
+        if [ -n "$NUMERIC" ]; then
+            echo "$NUMBER"
+        else
+            echo "Snapshot number $NUMBER created"
+        fi
     else
         die "Error creating new snapshot"
     fi
@@ -783,6 +800,37 @@ import_sn() {
     fi
 }
 
+delete_type() {
+    # .info files are named ${SNAPSHOT_NUMBER}.info
+    grep -l "TYPE=\"$1\"" "$TMP_MNT_DIR"/*.info | \
+      sed -n 's|.*/\([0-9]\+\)\.info$|\1|p' | \
+      while read -r snapshot; do
+        delete "$snapshot"
+    done
+}
+
+savepoint() {
+    local time="$1"
+    [ -n "$time" ] || time=10
+    commit
+    local number="$(create -n -t save "Temporal snapshot used for automatic rollback")"
+    local wall_cmd=""
+    if which wall >2 /dev/null >&2; then
+        wall_cmd="echo \"15 seconds till reboot, commit current changes by calling 'schnapps commit' to avoid that.\" | wall; sleep 15;"
+    fi
+    echo "$wall_cmd schnapps rollback $number; reboot" | at -q "$ATQ" now + "$time" min
+    echo "Do your changes, automatic rollback and reboot is scheduled $time minutes in the future."
+}
+
+commit() {
+    local job junk
+    atq -q "$ATQ" \
+        | while read -r job junk; do
+            atrm "$job"
+        done
+    delete_type save
+}
+
 cleanup() {
     umount_root
     remote_unmount
@@ -823,9 +871,22 @@ case $command in
     sync)
         sync_snps "$@"
         ;;
+    savepoint)
+        savepoint "$@"
+        ;;
+    commit)
+        commit
+        ;;
     delete)
-        for i in "$@"; do
-            delete "$i"
+        while [ -n "$1" ]; do
+            if [ "$1" = "-t" ]; then
+                [ -n "$2" ] || die_helping "Option -t requires type argument"
+                delete_type "$2"
+                shift
+            else
+                delete "$1"
+            fi
+            shift
         done
         ;;
     rollback)
