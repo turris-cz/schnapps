@@ -80,7 +80,7 @@ show_help() {
     echo "      Options:"
     echo "          -j              Output in json format."
     echo
-    echo "  cleanup [--compare]     Deletes old snapshots and keeps only N newest."
+    echo "  cleanup [-c]            Deletes old snapshots and keeps only N newest."
     echo "                          You can set number of snapshots to keep in /etc/config/schnapps."
     echo "                          Current value of N is following for various types (-1 means infinite):"
     echo "                           * $KEEP_MAX_SINGLE single snapshots"
@@ -468,7 +468,8 @@ cleanup() {
         [ -f "$info" ] || continue
         [ -d "$TMP_MNT_DIR/@`basename "$info" .info`" ] || rm "$info"
     done
-    if [ "x$1" = "x--compare" ]; then
+    # long option --compare fot the backward compatibility
+    if [ "$1" = "-c" -o "$1" = "--compare" ]; then
         echo "Searching for snapshots without any change."
         echo "This can take a while, please be patient."
         echo
