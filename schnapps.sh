@@ -156,7 +156,7 @@ mount_root() {
         exit 2
     fi
     mount "$ROOT_DEV" -o subvol=/ "$TMP_MNT_DIR" || die "Can't mount root partition"
-    btrfs qgroup show / > /dev/null 2>&1 || btrfs quota enable "$TMP_MNT_DIR"
+    btrfs qgroup show "$TMP_MNT_DIR" > /dev/null 2>&1 || btrfs quota enable "$TMP_MNT_DIR"
 }
 
 mount_snp() {
