@@ -107,11 +107,13 @@ show_help() {
     echo "                          You can then browse it and you have to umount it manually"
     echo "                          Numbers can be found via list command"
     echo
-    echo "  cmp [number] [number]   Compare snapshots corresponding to the numbers"
+    echo "  cmp [#] [#] [path]      Compare snapshots corresponding to the numbers"
+    echo "                          Additionally can be limited to specific subdirectory specified as path"
     echo "                          Numbers can be found via list command"
     echo "                          Shows just which files differs"
     echo
-    echo "  diff [number] [number]  Compare snapshots corresponding to the numbers"
+    echo "  diff [#] [#] [path]     Compare snapshots corresponding to the numbers"
+    echo "                          Additionally can be limited to specific subdirectory specified as path"
     echo "                          Numbers can be found via list command"
     echo "                          Shows even diffs of individual files"
     echo
@@ -429,8 +431,8 @@ my_cmp() {
 }
 
 my_status() {
-    ( cd "$TMP_MNT_DIR"/@"$1"; find . -type f;
-      cd "$TMP_MNT_DIR"/@"$2"; find . -type f ) | \
+    ( cd "$TMP_MNT_DIR"/@"$1""$3"; find . -type f;
+      cd "$TMP_MNT_DIR"/@"$2""$3"; find . -type f ) | \
     sed 's|^\.||' | sort -u | while read fl; do
         my_cmp "$TMP_MNT_DIR"/@"$1"/"$fl" "$TMP_MNT_DIR"/@"$2"/"$fl" "$fl"
     done
@@ -518,7 +520,7 @@ snp_diff() {
         return
     fi
     ( cd "$TMP_MNT_DIR";
-      diff -Nru @"$1" @"$2" 2> /dev/null )
+      diff -Nru @"$1""$3" @"$2""$3" 2> /dev/null )
 }
 
 snp_status() {
@@ -532,7 +534,7 @@ snp_status() {
     fi
     SNAME="$2"
     [ -n "$SNAME" ] || SNAME="current"
-    echo "Comparing snapshots $1 and $SNAME"
+    echo "Comparing snapshots $1 and $SNAME within path "$3""
     echo "This can take a while, please be patient."
     echo "Meaning of the lines is following:"
     echo
@@ -540,7 +542,7 @@ snp_status() {
     echo "   + file    file not present in $1 but exists in $SNAME"
     echo "   ~ file    file in $1 differs from file in $SNAME"
     echo
-    my_status "$1" "$2"
+    my_status "$1" "$2" "$3"
 }
 
 tar_it() {
@@ -831,13 +833,13 @@ case $command in
         done
         ;;
     cmp)
-        if [ $# -gt 2 ]; then
+        if [ $# -gt 3 ]; then
             die_helping "Wrong number of arguments"
         else
             LAST="$1"
             [ $# -gt 0 ]   || LAST="`btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n | tail -n 1`"
             [ -n "$LAST" ] || LAST="factory"
-            snp_status "$LAST" "$2"
+            snp_status "$LAST" "$2" "${3:-/}"
         fi
         ;;
     diff)
@@ -845,13 +847,13 @@ case $command in
             echo "Utility diff not found!"
             die "Please install diffutils package"
         fi
-        if [ $# -gt 2 ]; then
+        if [ $# -gt 3 ]; then
             die_helping "Wrong number of arguments"
         else
             LAST="$1"
             [ $# -gt 0 ]   || LAST="`btrfs subvolume list "$TMP_MNT_DIR" | sed -n 's|ID [0-9]* gen [0-9]* top level [0-9]* path @\([0-9][0-9]*\)$|\1|p' | sort -n | tail -n 1`"
             [ -n "$LAST" ] || LAST="factory"
-            snp_diff "$LAST" "$2"
+            snp_diff "$LAST" "$2" "${3:-/}"
         fi
         ;;
     help)
