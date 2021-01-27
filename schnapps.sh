@@ -765,9 +765,13 @@ import_sn() {
                 echo "Due to the nature of import, deduplication doesn't work, so it occupies a lot of space."
                 echo "You have been warned!"
             else
-                mv "$TMP_MNT_DIR"/@factory "$TMP_MNT_DIR"/@factory-old
+                if [ -d "$TMP_MNT_DIR"/@factory ]; then
+                    mv "$TMP_MNT_DIR"/@factory "$TMP_MNT_DIR"/@factory-old
+                else
+                    echo "No factory image present, this will be the first one"
+                fi
                 mv "$TMP_MNT_DIR"/@$NUMBER "$TMP_MNT_DIR"/@factory
-                btrfs subvolume delete -c "$TMP_MNT_DIR"/@factory-old
+                [ \! -d "$TMP_MNT_DIR"/@factory-old ] || btrfs subvolume delete -c "$TMP_MNT_DIR"/@factory-old
                 echo "Your factory image was updated!"
             fi
         else
