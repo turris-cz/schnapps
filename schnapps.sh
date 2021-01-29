@@ -762,7 +762,8 @@ download_tar() {
     wget -O "$tar" "$1" || die "Can't donwload '$1'"
     for sum in md5 sha256; do
         if wget -O "$tar"."$sum" "$1"."$sum"; then
-            (cd "$tmpdir"; "$sum"sum -c "$tar"."$sum" || die "Checksum doesn't match for '$1'")
+            sed "s|[^[:blank:]]*\$|$tar|" "$tar.$sum" | sha256sum -c - \
+                || die "Checksum doesn't match for '$1'"
         else
             rm -f "$tar"."$sum"
         fi
@@ -774,7 +775,8 @@ import_sn() {
     if [ "x-f" = "x$1" ]; then
         shift
 		case "$1" in
-			https://*) TAR="$(download_tar)";;
+			https://*) TAR="$(download_tar "$1")";;
+			http://*)  die "http:// not supported, use https:// instead!";;
 			file://*)  TAR="${1#file://}";;
 			*://*)     die "Url $1 is not supported!";;
 			*)         TAR="$1";;
@@ -788,6 +790,7 @@ import_sn() {
             die "Actual tarball has to be next to it!"
         fi
     fi
+    [ -r "$TAR" ] || die "No valid tarball found!"
 
     NUMBER="`get_next_number`"
     if btrfs subvolume create "$TMP_MNT_DIR"/@$NUMBER > /dev/null; then
