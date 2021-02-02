@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# Defaults
 TMP_MNT_DIR="/mnt/.snapshots"
 TMP_RMT_MNT_DIR="/mnt/.remote-snapshots"
 ATQ="s" # 'at' queue to use
@@ -30,6 +31,8 @@ REMOTE_MOUNTED=""
 REMOTE_PATH=""
 GPG_PASS=""
 ROOT_DEV="$(btrfs fi show / | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p' | head -n 1)"
+
+# Read configuration
 if [ -n "`which uci 2> /dev/null`" ]; then
     KEEP_MAX_SINGLE="`  uci get schnapps.keep.max_single   2> /dev/null`"
     KEEP_MAX_TIME="`    uci get schnapps.keep.max_time     2> /dev/null`"
@@ -57,6 +60,92 @@ ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
 [ -n "$KEEP_MAX_UPDATER"     ] || KEEP_MAX_UPDATER=-1
 [ -n "$KEEP_MAX_ROLLBACK"    ] || KEEP_MAX_ROLLBACK=-1
 
+# Usage help
+USAGE="Usage: $(basename "$0") [-d root] command [options]
+
+Commands:
+  create [opts] [desc]    Creates snapshot of current system.
+      Options:
+          -t type         Type of the snapshot - default 'single'.
+                          Other options are 'time', 'pre' and 'post'.
+
+  list [opts]             Show available snapshots.
+      Options:
+          -j              Output in json format.
+
+  rlist [opts]            Show uploaded snapshots.
+      Options:
+          -j              Output in json format.
+
+  cleanup [-c]            Deletes old snapshots and keeps only N newest.
+                          You can set number of snapshots to keep in /etc/config/schnapps.
+                          Current value of N is following for various types (-1 means infinite):
+                           * $KEEP_MAX_SINGLE single snapshots
+                           * $KEEP_MAX_TIME time based snapshots
+                           * $KEEP_MAX_UPDATER updater snapshots
+                           * $KEEP_MAX_ROLLBACK rollback backups snapshots
+                          With --compare option also deletes snapshots that doesn't differ from
+                          the previous one.
+
+  delete <what>...        Deletes corresponding snapshots.
+                          Arguments can be either snapshot number or type specification.
+                          Numbers can be found via list command.
+                          Type can be specified by '-t type' to delete all snapshots of specific
+                          type.
+
+  modify <number> [opts]  Modify metadata of snapshot corresponding to the number.
+                          Numbers can be found via list command.
+      Options:
+          -t type         Type of the snapshot - default 'single'
+                          Other options are 'time', 'pre' and 'post'.
+          -d description  Some note about the snapshot.
+
+  rollback [number]       Make snapshot corresponding to the number default for next boot.
+                          If called without any argument, go one step back.
+                          Numbers can be found via list command.
+
+  savepoint [minutes]     Create snapshot and rollback to it in specified time unless committed.
+                          Default is 10 minutes. Subsequent calls to savepoint function will
+                          commit the current state and reschedule the reboot.
+
+  commit                  Abort scheduled rollbacks and delete all savepoints.
+
+  mount <number>...       Mount snapshot corresponding to the number(s).
+                          You can then browse it and you have to umount it manually.
+                          Numbers can be found via list command.
+
+  cmp [#] [#] [path]      Compare snapshots corresponding to the numbers.
+                          Additionally can be limited to specific subdirectory specified as path.
+                          Numbers can be found via list command.
+                          Shows just which files differs.
+
+  diff [#] [#] [path]     Compare snapshots corresponding to the numbers.
+                          Additionally can be limited to specific subdirectory specified as path.
+                          Numbers can be found via list command.
+                          Shows even diffs of individual files.
+
+  export [snapshot] path  Export snapshot as a medkit into specified directory.
+                          Snapshot argument can be snapshot number or ommited to backup running
+                          system.
+
+  upload [snapshot] [[url] [path]]
+                          Upload snapshot as a medkit into specified folder on WebDAV, Nextcloud
+                          or SSH server.
+                          Snapshot argument can be snapshot number or ommited to backup running
+                          system.
+                          If the URL for SSH contains a relative path (no leading slash) or no
+                          path at all then the path specified is treated relatively to the home
+                          directory of login user.
+
+  sync [-t type,type]     Make sure that all snapshots of specified type are backed up on the
+                          server.
+                          Multiple types can be divided by commas.
+
+  import path             Import exported snapshot; path must point to .info file for the
+                          snapshot.
+"
+
+
 die() {
     echo "$@" >&2
     ERR="${ERR:-1}"
@@ -64,89 +153,7 @@ die() {
 }
 
 show_help() {
-    echo "Usage: $(basename "$0") [-d root] command [options]"
-    echo ""
-    echo "Commands:"
-    echo "  create [opts] [desc]    Creates snapshot of current system."
-    echo "      Options:"
-    echo "          -t type         Type of the snapshot - default 'single'."
-    echo "                          Other options are 'time', 'pre' and 'post'."
-    echo
-    echo "  list [opts]             Show available snapshots."
-    echo "      Options:"
-    echo "          -j              Output in json format."
-    echo
-    echo "  rlist [opts]            Show uploaded snapshots."
-    echo "      Options:"
-    echo "          -j              Output in json format."
-    echo
-    echo "  cleanup [-c]            Deletes old snapshots and keeps only N newest."
-    echo "                          You can set number of snapshots to keep in /etc/config/schnapps."
-    echo "                          Current value of N is following for various types (-1 means infinite):"
-    echo "                           * $KEEP_MAX_SINGLE single snapshots"
-    echo "                           * $KEEP_MAX_TIME time based snapshots"
-    echo "                           * $KEEP_MAX_UPDATER updater snapshots"
-    echo "                           * $KEEP_MAX_ROLLBACK rollback backups snapshots"
-    echo "                          With --compare option also deletes snapshots that doesn't differ from"
-    echo "                          the previous one."
-    echo
-    echo "  delete <what>...        Deletes corresponding snapshots."
-    echo "                          Arguments can be either snapshot number or type specification."
-    echo "                          Numbers can be found via list command."
-    echo "                          Type can be specified by '-t type' to delete all snapshots of specific"
-    echo "                          type."
-    echo
-    echo "  modify <number> [opts]  Modify metadata of snapshot corresponding to the number."
-    echo "                          Numbers can be found via list command."
-    echo "      Options:"
-    echo "          -t type         Type of the snapshot - default 'single'"
-    echo "                          Other options are 'time', 'pre' and 'post'."
-    echo "          -d description  Some note about the snapshot."
-    echo
-    echo "  rollback [number]       Make snapshot corresponding to the number default for next boot."
-    echo "                          If called without any argument, go one step back."
-    echo "                          Numbers can be found via list command."
-    echo
-    echo "  savepoint [minutes]     Create snapshot and rollback to it in specified time unless committed."
-    echo "                          Default is 10 minutes. Subsequent calls to savepoint function will"
-    echo "                          commit the current state and reschedule the reboot."
-    echo
-    echo "  commit                  Abort scheduled rollbacks and delete all savepoints."
-    echo
-    echo "  mount <number>...       Mount snapshot corresponding to the number(s)."
-    echo "                          You can then browse it and you have to umount it manually."
-    echo "                          Numbers can be found via list command."
-    echo
-    echo "  cmp [#] [#] [path]      Compare snapshots corresponding to the numbers."
-    echo "                          Additionally can be limited to specific subdirectory specified as path."
-    echo "                          Numbers can be found via list command."
-    echo "                          Shows just which files differs."
-    echo
-    echo "  diff [#] [#] [path]     Compare snapshots corresponding to the numbers."
-    echo "                          Additionally can be limited to specific subdirectory specified as path."
-    echo "                          Numbers can be found via list command."
-    echo "                          Shows even diffs of individual files."
-    echo
-    echo "  export [snapshot] path  Export snapshot as a medkit into specified directory."
-    echo "                          Snapshot argument can be snapshot number or ommited to backup running"
-    echo "                          system."
-    echo
-    echo "  upload [snapshot] [[url] [path]]"
-    echo "                          Upload snapshot as a medkit into specified folder on WebDAV, Nextcloud"
-    echo "                          or SSH server."
-    echo "                          Snapshot argument can be snapshot number or ommited to backup running"
-    echo "                          system."
-    echo "                          If the URL for SSH contains a relative path (no leading slash) or no"
-    echo "                          path at all then the path specified is treated relatively to the home"
-    echo "                          directory of login user."
-    echo
-    echo "  sync [-t type,type]     Make sure that all snapshots of specified type are backed up on the"
-    echo "                          server."
-    echo "                          Multiple types can be divided by commas."
-    echo
-    echo "  import path             Import exported snapshot; path must point to .info file for the"
-    echo "                          snapshot."
-    echo
+    echo "$USAGE"
 }
 
 die_helping() {
