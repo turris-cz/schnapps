@@ -31,6 +31,7 @@ REMOTE_MOUNTED=""
 REMOTE_PATH=""
 GPG_PASS=""
 ROOT_DEV="$(btrfs fi show / | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p' | head -n 1)"
+VERSION="@VERSION@"
 
 # Read configuration
 if [ -n "`which uci 2> /dev/null`" ]; then
@@ -143,6 +144,10 @@ Commands:
 
   import path             Import exported snapshot; path must point to .info file for the
                           snapshot.
+
+  help                    Display this help
+
+  version                 Display version
 "
 
 
@@ -942,6 +947,9 @@ case $command in
         ;;
     help)
         show_help
+        ;;
+    version)
+        echo "Schnapps version $VERSION"
         ;;
     *)
         die_helping "Unknown command $command!"
