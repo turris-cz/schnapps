@@ -410,7 +410,7 @@ delete() {
 
 rollback() {
     ROLL_TO="$1"
-    if [ -n "$ROLL_TO" ] && [ \! -d "$TMP_MNT_DIR"/@$NUMBER ]; then
+    if [ -n "$ROLL_TO" ] && [ \! -d "$TMP_MNT_DIR"/@$ROLL_TO ]; then
         die "Snapshot number $NUMBER does not exists!"
     fi
     if [ -z "$ROLL_TO" ]; then
