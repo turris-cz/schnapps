@@ -767,7 +767,7 @@ download_tar() {
     wget -O "$tar" "$1" || die "Can't donwload '$1'"
     for sum in md5 sha256; do
         if wget -O "$tar"."$sum" "$1"."$sum"; then
-            sed "s|[^[:blank:]]*\$|$tar|" "$tar.$sum" | sha256sum -c - \
+            sed "s|[^[:blank:]]*\$|$tar|" "$tar.$sum" | ${sum}sum -c - \
                 || die "Checksum doesn't match for '$1'"
         else
             rm -f "$tar"."$sum"
