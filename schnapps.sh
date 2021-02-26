@@ -855,14 +855,14 @@ commit() {
     delete_type save
 }
 
-cleanup() {
+trap_cleanup() {
     umount_root
     remote_unmount
     [ -z "$TEMP_DIR" ] || rm -rf "$TEMP_DIR"
     exit "$ERR"
 }
 
-trap 'cleanup' EXIT INT QUIT TERM ABRT
+trap 'trap_cleanup' EXIT INT QUIT TERM ABRT
 mount_root
 
 command="$1"
