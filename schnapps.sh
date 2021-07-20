@@ -26,27 +26,35 @@ DEFAULT_SYNC_TYPES="$SYNC_TYPES"
 ERR=0
 TMP_DIR=""
 KEEP_MAX=""
+KEEP_MAX_SINGLE=-1
+KEEP_MAX_TIME=-1
+KEEP_MAX_UPDATER=-1
+KEEP_MAX_ROLLBACK=-1
 REMOTE_URL=""
 REMOTE_MOUNTED=""
 REMOTE_PATH=""
+REMOTE_USER=
+REMOTE_PASS=
 REMOTE_KEEP="0"
 GPG_PASS=""
 ROOT_DEV="$(btrfs fi show / | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p' | head -n 1)"
 VERSION="@VERSION@"
 
 # Read configuration
-if [ -n "`which uci 2> /dev/null`" ]; then
-    KEEP_MAX_SINGLE="`  uci get schnapps.keep.max_single      2> /dev/null`"
-    KEEP_MAX_TIME="`    uci get schnapps.keep.max_time        2> /dev/null`"
-    KEEP_MAX_UPDATER="` uci get schnapps.keep.max_updater     2> /dev/null`"
-    KEEP_MAX_ROLLBACK="`uci get schnapps.keep.max_rollback    2> /dev/null`"
-    REMOTE_URL="`       uci get schnapps.remote.url           2> /dev/null`"
-    REMOTE_PATH="`      uci get schnapps.remote.path          2> /dev/null`"
-    REMOTE_USER="`      uci get schnapps.remote.user          2> /dev/null`"
-    REMOTE_PASS="`      uci get schnapps.remote.password      2> /dev/null`"
-    REMOTE_KEEP="`      uci get schnapps.remote.keep_foreever 2> /dev/null`"
-    SYNC_TYPES="`       uci get schnapps.remote.sync_types    2> /dev/null`"
-    GPG_PASS="`         uci get schnapps.encrypt.pass         2> /dev/null`"
+if [ -f "/lib/functions.sh" ]; then
+    . /lib/functions.sh
+    config_load schnapps
+    config_get KEEP_MAX_SINGLE keep max_single "$KEEP_MAX_SINGLE"
+    config_get KEEP_MAX_TIME keep max_time "$KEEP_MAX_TIME"
+    config_get KEEP_MAX_UPDATER keep max_updater "$KEEP_MAX_UPDATER"
+    config_get KEEP_MAX_ROLLBACK keep max_rollback "$KEEP_MAX_ROLLBACK"
+    config_get REMOTE_URL remote url "$REMOTE_URL"
+    config_get REMOTE_PATH remote path "$REMOTE_PATH"
+    config_get REMOTE_USER remote user "$REMOTE_USER"
+    config_get REMOTE_PASS remote password "$REMOTE_PASS"
+    config_get REMOTE_KEEP remote keep_forever "$REMOTE_KEEP"
+    config_get SYNC_TYPES remote sync_types "$SYNC_TYPES"
+    config_get GPG_PASS encrypt pass "$GPG_PASS"
 fi
 
 [ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
@@ -58,10 +66,6 @@ fi
 
 ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
 [ -z "$ROOT_LABEL" ] || [ \! -f /etc/schnapps/"$ROOT_LABEL" ] || . /etc/schnapps/"$ROOT_LABEL"
-[ -n "$KEEP_MAX_SINGLE"      ] || KEEP_MAX_SINGLE=-1
-[ -n "$KEEP_MAX_TIME"        ] || KEEP_MAX_TIME=-1
-[ -n "$KEEP_MAX_UPDATER"     ] || KEEP_MAX_UPDATER=-1
-[ -n "$KEEP_MAX_ROLLBACK"    ] || KEEP_MAX_ROLLBACK=-1
 
 # Usage help
 USAGE="Usage: $(basename "$0") [-d root] command [options]
