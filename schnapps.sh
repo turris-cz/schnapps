@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Btrfs snapshots managing script
-# (C) 2016-2020 CZ.NIC, z.s.p.o.
+# (C) 2016-2021 CZ.NIC, z.s.p.o.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -783,13 +783,13 @@ remote_list() {
 mk_tmp_dir() {
     [ -z "$TEMP_DIR" ] || return
     TEMP_DIR="$(mktemp -d)"
-	[ -n "$TEMP_DIR" ] || die "Can't create a temp dir"
+    [ -n "$TEMP_DIR" ] || die "Can't create a temp dir"
 }
 
 download_tar() {
     mk_tmp_dir
     local tmpdir="$TEMP_DIR/tar_download"
-	mkdir -p "$tmpdir"
+    mkdir -p "$tmpdir"
     [ -d "$tmpdir" ] || die "Can't create a tmp directory"
     local tar="$tmpdir/factory.tar.gz"
     wget -O "$tar" "$1" || die "Can't donwload '$1'"
@@ -801,19 +801,19 @@ download_tar() {
             rm -f "$tar"."$sum"
         fi
     done >&2
-	echo "$tar"
+    echo "$tar"
 }
 
 import_sn() {
     if [ "x-f" = "x$1" ]; then
         shift
-		case "$1" in
-			https://*) TAR="$(download_tar "$1")";;
-			http://*)  die "http:// not supported, use https:// instead!";;
-			file://*)  TAR="${1#file://}";;
-			*://*)     die "Url $1 is not supported!";;
-			*)         TAR="$1";;
-		esac
+        case "$1" in
+            https://*) TAR="$(download_tar "$1")";;
+            http://*)  die "http:// not supported, use https:// instead!";;
+            file://*)  TAR="${1#file://}";;
+            *://*)     die "Url $1 is not supported!";;
+            *)         TAR="$1";;
+        esac
         INFO=""
     else
         INFO="$1"
