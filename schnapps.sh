@@ -659,9 +659,13 @@ remote_mount() {
             ;;
         smb://*|cifs://*)
             local final_remote_url="$(echo "$REMOTE_URL" | sed -e 's|^[a-z]*://|//|')"
+            local domain="$(echo "$REMOTE_URL" | cut -d/ -f 3)"
             local opts
             if [ -n "$REMOTE_USER" ]; then
-                opts="user=$REMOTE_USER,password=$REMOTE_PASS"
+                mk_tmp_dir
+                printf "username=%s\npassword=%s\ndomain=%s\n" \
+                    "$REMOTE_USER" "$REMOTE_PASS" "$domain" > "$TEMP_DIR/samba-pass"
+                opts="credentials=$TEMP_DIR/samba-pass"
             else
                 opts="guest"
             fi
