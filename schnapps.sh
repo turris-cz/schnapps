@@ -243,47 +243,16 @@ round_output() {
     echo -n "$OUTPUT"
 }
 
-TBL_NUM=5
-TBL_TPE=10
-TBL_SIZE=12
-TBL_DATE=28
-TBL_DESC=35
-table_put() {
-    round_output "$1" $TBL_NUM R
-    echo -n "|"
-    round_output "$2" $TBL_TPE
-    echo -n "|"
-    round_output "$3" $TBL_SIZE $SIZE_AL
-    echo -n "|"
-    round_output "$4" $TBL_DATE
-    echo -n "| "
-    echo "$5"
-}
-
-table_separator() {
-    round_output "-" $TBL_NUM R  "-"
-    echo -n "+"
-    round_output "-" $TBL_TPE "" "-"
-    echo -n "+"
-    round_output "-" $TBL_SIZE "" "-"
-    echo -n "+"
-    round_output "-" $TBL_DATE "" "-"
-    echo -n "+"
-    round_output "-" $TBL_DESC "" "-"
-    echo ""
-}
+TBL_NUM=4
 
 generic_list() {
     JSON=""
-    if [ "x$1" = x-j ]; then
-        JSON="y"
-    fi
+    [ "$1" = '-j' ] && JSON="y"
     shift
     cd "$1"
     if [ -z "$JSON" ]; then
-        table_put "#" Type Size Date Description
-        SIZE_AL=R
-        table_separator
+        printf " $(printf "%0.s " $(seq 2 $TBL_NUM))# | Type      | Size        | Date                      | Description\n"
+        printf "-$(printf "%0.s-" $(seq $TBL_NUM))-+-----------+-------------+---------------------------+------------------------------------\n"
     else
         echo '{ "snapshots": ['
     fi
@@ -293,7 +262,6 @@ generic_list() {
         CREATED=""
         DESCRIPTION=""
         TYPE="single"
-        NUM="$i"
         SIZE=""
         # TODO: Maybe make sure to read only data we are interested in just in
         #       case somebody was tampering with our data file
@@ -303,14 +271,14 @@ generic_list() {
         [ \! -f "$1/$i".tar.gz ] || SIZE="$(du -sh "$1/$i".tar.gz | sed 's|[[:blank:]].*||')"
         [ \! -f "$1/$i".tar.gz.pgp ] || SIZE="$(du -sh "$1/$i".tar.gz.pgp | sed 's|[[:blank:]].*||')"
         if [ -z "$JSON" ]; then
-            table_put "$NUM" "$TYPE" "$SIZE" "$CREATED" "$DESCRIPTION"
+            printf " %${TBL_NUM}s | %-9s | %11s | %25s | %s\n" "$i" "$TYPE" "$SIZE" "$CREATED" "$DESCRIPTION"
         else
             [ -n "$FIRST" ] || echo -n ", "
-            echo "{ \"number\": $NUM, \"type\": \"$TYPE\", \"size\": \"$SIZE\", \"created\": \"$CREATED\", \"description\": \"$DESCRIPTION\" }"
+            echo "{ \"number\": $i, \"type\": \"$TYPE\", \"size\": \"$SIZE\", \"created\": \"$CREATED\", \"description\": \"$DESCRIPTION\" }"
             FIRST=""
         fi
     done
-    [ "$JSON" \!= "y" ] || echo " ] }"
+    [ -n "$JSON" ] && echo " ] }"
 }
 
 list() {
