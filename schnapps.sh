@@ -19,6 +19,7 @@
 # Defaults
 TMP_MNT_DIR="/mnt/.snapshots"
 TMP_RMT_MNT_DIR="/mnt/.remote-snapshots"
+TEMP_DIR=""
 ATQ="s" # 'at' queue to use
 LOCK="/tmp/schnapps.lock"
 SYNC_TYPES="pre,post,time,single,rollback"
@@ -630,18 +631,13 @@ export_sn() {
 webdav_mount() {
     FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|webdav://|https://|')"
     [ -n "`which mount.davfs`" ] || die "davfs is not available"
-    mkdir -p /tmp/.schnapps-dav
-    touch /tmp/.schnapps-dav/config
-    touch /tmp/.schnapps-dav/secret
-    chown -R root:root /tmp/.schnapps-dav
-    chmod 0700 /tmp/.schnapps-dav
-    chmod 0600 /tmp/.schnapps-dav/*
-    cat > /tmp/.schnapps-dav/config << EOF
+    mk_tmp_dir
+    cat > "$TEMP_DIR"/dav-config << EOF
 use_locks 0
-secrets /tmp/.schnapps-dav/secret
+secrets "$TEMP_DIR"/dav-secret
 EOF
-    echo "$FINAL_REMOTE_URL $REMOTE_USER $REMOTE_PASS" > /tmp/.schnapps-dav/secret
-    mount.davfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" -o dir_mode=0700,file_mode=0600,uid=root,gid=root,conf=/tmp/.schnapps-dav/config || die "Can't access remote filesystem"
+    echo "$FINAL_REMOTE_URL $REMOTE_USER $REMOTE_PASS" > "$TEMP_DIR"/dav-secret
+    mount.davfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" -o dir_mode=0700,file_mode=0600,uid=root,gid=root,conf="$TEMP_DIR"/dav-config || die "Can't access remote filesystem"
 }
 
 remote_mount() {
@@ -681,11 +677,9 @@ remote_unmount() {
     case "$REMOTE_URL" in
         nextcloud://*)
             umount -fl "$TMP_RMT_MNT_DIR" 2> /dev/null
-            rm -rf /tmp/.schnapps-dav
             ;;
         webdav://*)
             umount -fl "$TMP_RMT_MNT_DIR" 2> /dev/null
-            rm -rf /tmp/.schnapps-dav
             ;;
         ssh://*)
             fusermount -uz "$TMP_RMT_MNT_DIR" 2> /dev/null
@@ -751,6 +745,8 @@ remote_list() {
 mk_tmp_dir() {
     [ -z "$TEMP_DIR" ] || return
     TEMP_DIR="$(mktemp -d)"
+    chown -R root:root "$TEMP_DIR"
+    chmod 0700 "$TEMP_DIR"
     [ -n "$TEMP_DIR" ] || die "Can't create a temp dir"
 }
 
