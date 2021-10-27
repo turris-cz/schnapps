@@ -634,9 +634,10 @@ webdav_mount() {
     mk_tmp_dir
     cat > "$TEMP_DIR"/dav-config << EOF
 use_locks 0
-secrets "$TEMP_DIR"/dav-secret
+secrets "$TEMP_DIR/dav-secret"
 EOF
-    echo "$FINAL_REMOTE_URL $REMOTE_USER $REMOTE_PASS" > "$TEMP_DIR"/dav-secret
+    echo "$TMP_RMT_MNT_DIR \"$REMOTE_USER\" \"$REMOTE_PASS\"" > "$TEMP_DIR"/dav-secret
+    chmod 0600 "$TEMP_DIR/dav-secret"
     mount.davfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" -o dir_mode=0700,file_mode=0600,uid=root,gid=root,conf="$TEMP_DIR"/dav-config || die "Can't access remote filesystem"
 }
 
