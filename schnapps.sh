@@ -560,6 +560,7 @@ snp_status() {
 
 tar_it() {
     [ \! -f /etc/schnapps/export-exclude ] || EXCLUDE="--exclude-from=/etc/schnapps/export-exclude"
+    [ \! -d /etc/schnapps/export-overlay ] || OVERLAY="-C /etc/schnapps/export-overlay ."
     if [ -n "$GPG_PASS" ] && [ -n "`which gpg`" ]; then
         rm -rf /tmp/schnapps-gpg
         mkdir -p /tmp/schnapps-gpg/home
@@ -570,12 +571,12 @@ tar_it() {
         tar --numeric-owner $EXCLUDE --one-file-system -cpvf "$2".gpg \
             --use-compress-program="gzip -c - | gpg  --batch --yes \
                 --passphrase-file /tmp/schnapps-gpg/pass --cipher-algo=AES256 -c" \
-            -C "$1" .
+            -C "$1" . $OVERLAY
         ret="$?"
         rm -rf /tmp/schnapps-gpg
         return $ret
     else
-        tar -C "$1" --numeric-owner $EXCLUDE --one-file-system -cpzvf "$2" .
+        tar --numeric-owner $EXCLUDE --one-file-system -cpzvf "$2" -C "$1" . $OVERLAY
         return $?
     fi
 }
