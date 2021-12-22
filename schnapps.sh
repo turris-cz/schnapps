@@ -719,7 +719,7 @@ upload() {
 }
 
 info2num() {
-    echo "$1" | sed -n 's|.*[/-]\([0-9]*\).info$|\1|'
+    echo "$1" | sed -n 's|.*[/-]\([0-9]*\).info$|\1|p'
 }
 
 sync_snps() {
@@ -735,14 +735,14 @@ sync_snps() {
         local num="$(info2num "$info")"
         if expr "$SYNC_TYPES" : ".*$TYPE.*" > /dev/null; then
             [ -f "$TMP_RMT_MNT_DIR/$REMOTE_PATH/$BOARD-medkit-$HOSTNAME-$num.info" ] \
-                || upload "$i"
+                || upload "$num"
         fi
     done
     if [ "$REMOTE_KEEP" != 1 ]; then
         for info in "$TMP_RMT_MNT_DIR/$REMOTE_PATH/$BOARD-medkit-$HOSTNAME-"*.info; do
             [ -f "$info" ] || continue
             local num="$(info2num "$info")"
-            [ -f "$TMP_MNT_DIR/$num.info" ] || continue
+            [ \! -f "$TMP_MNT_DIR/$num.info" ] || continue
             rm -f "$TMP_RMT_MNT_DIR/$REMOTE_PATH/$BOARD-medkit-$HOSTNAME-$num.info" \
                   "$TMP_RMT_MNT_DIR/$REMOTE_PATH/$BOARD-medkit-$HOSTNAME-$num.tar.gz" \
                   "$TMP_RMT_MNT_DIR/$REMOTE_PATH/$BOARD-medkit-$HOSTNAME-$num.tar.gz.pgp"
