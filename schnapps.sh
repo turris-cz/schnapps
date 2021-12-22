@@ -41,33 +41,6 @@ GPG_PASS=""
 ROOT_DEV="$(btrfs fi show / | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p' | head -n 1)"
 VERSION="@VERSION@"
 
-# Read configuration
-if [ -f "/lib/functions.sh" ]; then
-    . /lib/functions.sh
-    config_load schnapps
-    config_get KEEP_MAX_SINGLE keep max_single "$KEEP_MAX_SINGLE"
-    config_get KEEP_MAX_TIME keep max_time "$KEEP_MAX_TIME"
-    config_get KEEP_MAX_UPDATER keep max_updater "$KEEP_MAX_UPDATER"
-    config_get KEEP_MAX_ROLLBACK keep max_rollback "$KEEP_MAX_ROLLBACK"
-    config_get REMOTE_URL remote url "$REMOTE_URL"
-    config_get REMOTE_PATH remote path "$REMOTE_PATH"
-    config_get REMOTE_USER remote user "$REMOTE_USER"
-    config_get REMOTE_PASS remote password "$REMOTE_PASS"
-    config_get REMOTE_KEEP remote keep_forever "$REMOTE_KEEP"
-    config_get SYNC_TYPES remote sync_types "$SYNC_TYPES"
-    config_get GPG_PASS encrypt pass "$GPG_PASS"
-fi
-
-[ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
-
-if [ "x$1" == "x-d" ]; then
-    ROOT_DEV="$(btrfs fi show $2 | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p')"
-    shift 2
-fi
-
-ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
-[ -z "$ROOT_LABEL" ] || [ \! -f /etc/schnapps/"$ROOT_LABEL" ] || . /etc/schnapps/"$ROOT_LABEL"
-
 # Usage help
 USAGE="Usage: $(basename "$0") [-d root] command [options]
 
@@ -187,7 +160,7 @@ mount_root() {
         echo "Another instance seems to be running!"
         exit 2
     fi
-    mkdir -p "$TMP_MNT_DIR"
+    mkdir -p "$TMP_MNT_DIR" || die "Can't create a temp directory"
     if [ -n "`ls -A "$TMP_MNT_DIR"`" ]; then
         rmdir "$LOCK"
         echo "ERROR: Something is already in '$TMP_MNT_DIR'"
@@ -275,7 +248,7 @@ generic_list() {
             printf " %${TBL_NUM}s | %-9s | %11s | %25s | %s\n" "$i" "$TYPE" "$SIZE" "$CREATED" "$DESCRIPTION"
         else
             [ -n "$FIRST" ] || echo -n ", "
-            echo "{ \"number\": $i, \"type\": \"$TYPE\", \"size\": \"$SIZE\", \"created\": \"$CREATED\", \"description\": \"$DESCRIPTION\" }"
+            echo "{ \"number\": \"$i\", \"type\": \"$TYPE\", \"size\": \"$SIZE\", \"created\": \"$CREATED\", \"description\": \"$DESCRIPTION\" }"
             FIRST=""
         fi
     done
@@ -455,7 +428,7 @@ cleanup() {
         [ -f "$info" ] || continue
         [ -d "$TMP_MNT_DIR/@`basename "$info" .info`" ] || rm "$info"
     done
-    # long option --compare fot the backward compatibility
+    # long option --compare for the backward compatibility
     if [ "$1" = "-c" -o "$1" = "--compare" ]; then
         echo "Searching for snapshots without any change."
         echo "This can take a while, please be patient."
@@ -472,6 +445,8 @@ cleanup() {
             fi
             LAST="$i"
         done
+    elif [ "$1" ]; then
+        die_helping "Invalid argument $1"
     fi
     if [ "$KEEP_MAX_SINGLE" -ge 0 ] || [ "$KEEP_MAX_TIME" -ge 0 ] || [ "$KEEP_MAX_UPDATER" -ge 0 ]; then
         echo "Looking for old snapshots..."
@@ -868,6 +843,34 @@ trap_cleanup() {
     [ -z "$TEMP_DIR" ] || rm -rf "$TEMP_DIR"
     exit "$ERR"
 }
+
+# Read configuration
+if [ -f "/lib/functions.sh" ]; then
+    . /lib/functions.sh
+    config_load schnapps
+    config_get KEEP_MAX_SINGLE keep max_single "$KEEP_MAX_SINGLE"
+    config_get KEEP_MAX_TIME keep max_time "$KEEP_MAX_TIME"
+    config_get KEEP_MAX_UPDATER keep max_updater "$KEEP_MAX_UPDATER"
+    config_get KEEP_MAX_ROLLBACK keep max_rollback "$KEEP_MAX_ROLLBACK"
+    config_get REMOTE_URL remote url "$REMOTE_URL"
+    config_get REMOTE_PATH remote path "$REMOTE_PATH"
+    config_get REMOTE_USER remote user "$REMOTE_USER"
+    config_get REMOTE_PASS remote password "$REMOTE_PASS"
+    config_get REMOTE_KEEP remote keep_forever "$REMOTE_KEEP"
+    config_get SYNC_TYPES remote sync_types "$SYNC_TYPES"
+    config_get GPG_PASS encrypt pass "$GPG_PASS"
+fi
+
+[ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
+
+if [ "x$1" == "x-d" ]; then
+    ROOT_DEV="$(btrfs fi show $2 | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p')"
+    shift 2
+fi
+
+[ -n "$ROOT_DEV" ] || die "Can't figure out device to work on"
+ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
+[ -z "$ROOT_LABEL" ] || [ \! -f /etc/schnapps/"$ROOT_LABEL" ] || . /etc/schnapps/"$ROOT_LABEL"
 
 trap 'trap_cleanup' EXIT INT QUIT TERM ABRT
 mount_root
