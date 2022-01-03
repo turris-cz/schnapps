@@ -41,6 +41,23 @@ GPG_PASS=""
 ROOT_DEV="$(btrfs fi show / | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p' | head -n 1)"
 VERSION="@VERSION@"
 
+# Read uci configuration if available
+if [ -f "/lib/functions.sh" ]; then
+    . /lib/functions.sh
+    config_load schnapps
+    config_get KEEP_MAX_SINGLE keep max_single "$KEEP_MAX_SINGLE"
+    config_get KEEP_MAX_TIME keep max_time "$KEEP_MAX_TIME"
+    config_get KEEP_MAX_UPDATER keep max_updater "$KEEP_MAX_UPDATER"
+    config_get KEEP_MAX_ROLLBACK keep max_rollback "$KEEP_MAX_ROLLBACK"
+    config_get REMOTE_URL remote url "$REMOTE_URL"
+    config_get REMOTE_PATH remote path "$REMOTE_PATH"
+    config_get REMOTE_USER remote user "$REMOTE_USER"
+    config_get REMOTE_PASS remote password "$REMOTE_PASS"
+    config_get REMOTE_KEEP remote keep_forever "$REMOTE_KEEP"
+    config_get SYNC_TYPES remote sync_types "$SYNC_TYPES"
+    config_get GPG_PASS encrypt pass "$GPG_PASS"
+fi
+
 # Usage help
 USAGE="Usage: $(basename "$0") [-d root] command [options]
 
@@ -843,23 +860,6 @@ trap_cleanup() {
     [ -z "$TEMP_DIR" ] || rm -rf "$TEMP_DIR"
     exit "$ERR"
 }
-
-# Read configuration
-if [ -f "/lib/functions.sh" ]; then
-    . /lib/functions.sh
-    config_load schnapps
-    config_get KEEP_MAX_SINGLE keep max_single "$KEEP_MAX_SINGLE"
-    config_get KEEP_MAX_TIME keep max_time "$KEEP_MAX_TIME"
-    config_get KEEP_MAX_UPDATER keep max_updater "$KEEP_MAX_UPDATER"
-    config_get KEEP_MAX_ROLLBACK keep max_rollback "$KEEP_MAX_ROLLBACK"
-    config_get REMOTE_URL remote url "$REMOTE_URL"
-    config_get REMOTE_PATH remote path "$REMOTE_PATH"
-    config_get REMOTE_USER remote user "$REMOTE_USER"
-    config_get REMOTE_PASS remote password "$REMOTE_PASS"
-    config_get REMOTE_KEEP remote keep_forever "$REMOTE_KEEP"
-    config_get SYNC_TYPES remote sync_types "$SYNC_TYPES"
-    config_get GPG_PASS encrypt pass "$GPG_PASS"
-fi
 
 [ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
 
