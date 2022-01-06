@@ -567,18 +567,16 @@ tar_it() {
     fi
     [ \! -d /etc/schnapps/export-overlay ] || OVERLAY="-C /etc/schnapps/export-overlay ."
     if [ -n "$GPG_PASS" ] && [ -n "`which gpg`" ]; then
-        rm -rf /tmp/schnapps-gpg
-        mkdir -p /tmp/schnapps-gpg/home
-        chown -R root:root /tmp/schnapps-gpg
-        chmod -R 0700 /tmp/schnapps-gpg
-        export GNUPGHOME=/tmp/schnapps-gpg/home
-        echo "$GPG_PASS" > /tmp/schnapps-gpg/pass
+        mk_tmp_dir
+        mkdir -p "$TEMP_DIR/gpg"
+        chmod -R 0700 "$TEMP_DIR/gpg"
+        export GNUPGHOME="$TEMP_DIR/gpg"
+        echo "$GPG_PASS" > "$TEMP_DIR/gpg/pass"
         tar --numeric-owner $EXCLUDE --one-file-system -cpvf "$2".gpg \
             --use-compress-program="gzip -c - | gpg  --batch --yes \
-                --passphrase-file /tmp/schnapps-gpg/pass --cipher-algo=AES256 -c" \
+                --passphrase-file \"$TEMP_DIR/gpg/pass\" --cipher-algo=AES256 -c" \
             -C "$1" . $OVERLAY
         ret="$?"
-        rm -rf /tmp/schnapps-gpg
         return $ret
     else
         tar --numeric-owner $EXCLUDE --one-file-system -cpzvf "$2" -C "$1" . $OVERLAY
