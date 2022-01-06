@@ -664,8 +664,9 @@ remote_mount() {
             sshfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" || die "Can't access remote filesystem"
             ;;
         smb:*|cifs:*)
-            local final_remote_url="$(echo "$REMOTE_URL" | sed -e 's|^[a-z:0-9.]*://|//|')"
-            local domain="$(echo "$REMOTE_URL" | cut -d/ -f 3)"
+            local final_remote_url="$(echo "$REMOTE_URL" | sed -n 's|^[a-z:0-9.]*://|//|p')"
+            [ -n "$final_remote_url" ] || die "Invalid samba url $REMOTE_URL"
+            local domain="$(echo "$REMOTE_URL" | cut -d / -f 3)"
             local vers="$(echo "$REMOTE_URL" | sed -n 's|^[a-z]*:\([0-9.]\+\)://.*|\1|p')"
             local opts
             if [ -n "$REMOTE_USER" ]; then
