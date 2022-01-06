@@ -41,6 +41,12 @@ GPG_PASS=""
 ROOT_DEV="$(btrfs fi show / | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p' | head -n 1)"
 VERSION="@VERSION@"
 
+die() {
+    echo "$@" >&2
+    ERR="${ERR:-1}"
+    exit 1
+}
+
 # Read uci configuration if available
 if [ -f "/lib/functions.sh" ]; then
     . /lib/functions.sh
@@ -57,6 +63,17 @@ if [ -f "/lib/functions.sh" ]; then
     config_get SYNC_TYPES remote sync_types "$SYNC_TYPES"
     config_get GPG_PASS encrypt pass "$GPG_PASS"
 fi
+
+[ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
+
+if [ "x$1" == "x-d" ]; then
+    ROOT_DEV="$(btrfs fi show $2 | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p')"
+    shift 2
+fi
+
+[ -n "$ROOT_DEV" ] || die "Can't figure out device to work on"
+ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
+[ -z "$ROOT_LABEL" ] || [ \! -f /etc/schnapps/"$ROOT_LABEL" ] || . /etc/schnapps/"$ROOT_LABEL"
 
 # Usage help
 USAGE="Usage: $(basename "$0") [-d root] command [options]
@@ -146,13 +163,6 @@ Commands:
 
   version                 Display version
 "
-
-
-die() {
-    echo "$@" >&2
-    ERR="${ERR:-1}"
-    exit 1
-}
 
 show_help() {
     echo "$USAGE"
@@ -860,17 +870,6 @@ trap_cleanup() {
     [ -z "$TEMP_DIR" ] || rm -rf "$TEMP_DIR"
     exit "$ERR"
 }
-
-[ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
-
-if [ "x$1" == "x-d" ]; then
-    ROOT_DEV="$(btrfs fi show $2 | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p')"
-    shift 2
-fi
-
-[ -n "$ROOT_DEV" ] || die "Can't figure out device to work on"
-ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
-[ -z "$ROOT_LABEL" ] || [ \! -f /etc/schnapps/"$ROOT_LABEL" ] || . /etc/schnapps/"$ROOT_LABEL"
 
 trap 'trap_cleanup' EXIT INT QUIT TERM ABRT
 mount_root
