@@ -559,7 +559,12 @@ snp_status() {
 }
 
 tar_it() {
-    [ \! -f /etc/schnapps/export-exclude ] || EXCLUDE="--exclude-from=/etc/schnapps/export-exclude"
+    if [ -d /etc/schnapps/export-exclude.d ] && \
+       [ -n "$(ls /etc/schnapps/export-exclude.d/* 2> /dev/null)" ]; then
+        mk_tmp_dir
+        cat /etc/schnapps/export-exclude.d/* > "$TEMP_DIR/export-exclude"
+        EXCLUDE="--exclude-from=$TEMP_DIR/export-exclude"
+    fi
     [ \! -d /etc/schnapps/export-overlay ] || OVERLAY="-C /etc/schnapps/export-overlay ."
     if [ -n "$GPG_PASS" ] && [ -n "`which gpg`" ]; then
         rm -rf /tmp/schnapps-gpg
