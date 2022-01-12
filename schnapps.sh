@@ -566,7 +566,7 @@ tar_it() {
         EXCLUDE="--exclude-from=$TEMP_DIR/export-exclude"
     fi
     [ \! -d /etc/schnapps/export-overlay ] || OVERLAY="-C /etc/schnapps/export-overlay ."
-    if [ -n "$GPG_PASS" ] && [ -n "`which gpg`" ]; then
+    if [ -n "$GPG_PASS" ] && [ -n "$(which gpg)" ]; then
         mk_tmp_dir
         mkdir -p "$TEMP_DIR/gpg"
         chmod -R 0700 "$TEMP_DIR/gpg"
