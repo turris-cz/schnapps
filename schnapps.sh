@@ -275,7 +275,7 @@ generic_list() {
             printf " %${TBL_NUM}s | %-9s | %11s | %25s | %s\n" "$i" "$TYPE" "$SIZE" "$CREATED" "$DESCRIPTION"
         else
             [ -n "$FIRST" ] || echo -n ", "
-            echo "{ \"number\": \"$i\", \"type\": \"$TYPE\", \"size\": \"$SIZE\", \"created\": \"$CREATED\", \"description\": \"$DESCRIPTION\" }"
+            echo "{ \"id\": \"$i\", \"type\": \"$TYPE\", \"size\": \"$SIZE\", \"created\": \"$CREATED\", \"description\": \"$DESCRIPTION\" }"
             FIRST=""
         fi
     done
