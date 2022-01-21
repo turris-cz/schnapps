@@ -579,6 +579,8 @@ snp_status() {
     my_status "$1" "$2" "$3"
 }
 
+# $1 - path to snapshot to tar
+# $2 - output path or '-' for stdout
 tar_it() {
     if [ -d /etc/schnapps/export-exclude.d ] && \
        [ -n "$(ls /etc/schnapps/export-exclude.d/* 2> /dev/null)" ]; then
@@ -586,8 +588,11 @@ tar_it() {
         cat /etc/schnapps/export-exclude.d/* > "$TEMP_DIR/export-exclude"
         EXCLUDE="--exclude-from=$TEMP_DIR/export-exclude"
     fi
-    [ \! -d /etc/schnapps/export-overlay ] || OVERLAY="-C /etc/schnapps/export-overlay ."
-    if [ -n "$GPG_PASS" ] && [ -n "$(which gpg)" ]; then
+    [ ! -d /etc/schnapps/export-overlay ] || OVERLAY="-C /etc/schnapps/export-overlay ."
+    if [ "$2" = "-" ]; then
+        tar --numeric-owner $EXCLUDE --one-file-system -cpzvO -C "$1" . $OVERLAY
+        return $?
+    elif [ -n "$GPG_PASS" ] && [ -n "$(which gpg)" ]; then
         mk_tmp_dir
         mkdir -p "$TEMP_DIR/gpg"
         chmod -R 0700 "$TEMP_DIR/gpg"
@@ -597,8 +602,7 @@ tar_it() {
             --use-compress-program="gzip -c - | gpg  --batch --yes \
                 --passphrase-file \"$TEMP_DIR/gpg/pass\" --cipher-algo=AES256 -c" \
             -C "$1" . $OVERLAY
-        ret="$?"
-        return $ret
+        return $?
     else
         tar --numeric-owner $EXCLUDE --one-file-system -cpzvf "$2" -C "$1" . $OVERLAY
         return $?
@@ -633,7 +637,17 @@ export_sn() {
     [ -n "$NAME" ] || NAME="$(date +%Y%m%d)"
     TRG_PATH="$1"
 
-    if [ $# -ne 1 ] || [ \! -d "$TMP_MNT_DIR"/@"$NUMBER" ] || [ \! -d "$TRG_PATH" ]; then
+    if [ "$TRG_PATH" = "-" ]; then
+        if tar_it "$TMP_MNT_DIR/"@$NUMBER "-"; then
+            return 0
+        else
+            die "Snapshot export failed!"
+        fi
+    fi
+
+    [ -d "$TMP_MNT_DIR"/@"$NUMBER" ] \
+        || die "Can't export non-existing snapshot!"
+    if [ $# -ne 1 ] || [ ! -d "$TRG_PATH" ]; then
         die "Export takes target directory as argument!"
     fi
     INFO="$TRG_PATH/$BOARD-medkit-$HOSTNAME-$NAME.info"
@@ -642,8 +656,8 @@ export_sn() {
         REMOTE_PATH="localhost"
         REMOTE_URL="$TRG_PATH"
     fi
-    if tar_it "$TMP_MNT_DIR"/@$NUMBER "$TAR" .; then
-        [ \! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
+    if tar_it "$TMP_MNT_DIR"/@$NUMBER "$TAR"; then
+        [ ! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
         if [ -n "$NUMBER" ]; then
             echo "Snapshot $NUMBER was exported into $REMOTE_PATH on $REMOTE_URL as $BOARD-medkit-$NAME"
         else
