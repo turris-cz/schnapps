@@ -640,6 +640,8 @@ snp_status() {
     my_status "$1" "$2" "$3"
 }
 
+# $1 - path to snapshot to tar
+# $2 - output path or '-' for stdout
 tar_it() {
     local dir="$1"
     local output="$2"
@@ -650,7 +652,10 @@ tar_it() {
         EXCLUDE="--exclude-from=$TEMP_DIR/export-exclude"
     fi
     [ ! -d /etc/schnapps/export-overlay ] || OVERLAY="-C /etc/schnapps/export-overlay ."
-    if [ -n "$GPG_PASS" ] && [ -n "$(which gpg)" ]; then
+    if [ "$2" = "-" ]; then
+        tar --numeric-owner $EXCLUDE --one-file-system -cpzvO -C "$1" . $OVERLAY
+        return $?
+    elif [ -n "$GPG_PASS" ] && [ -n "$(which gpg)" ]; then
         mk_tmp_dir
         mkdir -p "$TEMP_DIR/gpg"
         chmod -R 0700 "$TEMP_DIR/gpg"
@@ -660,9 +665,8 @@ tar_it() {
         tar --numeric-owner $EXCLUDE --one-file-system -cpvf "$output" \
             --use-compress-program="gzip -c - | gpg  --batch --yes \
                 --passphrase-file \"$TEMP_DIR/gpg/pass\" --cipher-algo=AES256 -c" \
-            -C "$dir" . $OVERLAY
-        ret="$?"
-        return $ret
+            -C "$1" . $OVERLAY
+        return $?
     else
         tar --numeric-owner $EXCLUDE --one-file-system -cpzvf "$output" -C "$dir" . $OVERLAY
         return $?
@@ -703,21 +707,25 @@ export_sn() {
     [ -n "$NAME" ] || NAME="$(date +%Y%m%d)"
     TRG_PATH="$1"
 
-    if [ $# -ne 1 ] || [ ! -d "$TMP_MNT_DIR"/@"$NUMBER" ] || [ ! -d "$TRG_PATH" -a "$TRG_PATH" != '-' ]; then
-        die "Export takes target directory or '-' as an argument!"
+    if [ "$TRG_PATH" = "-" ]; then
+        if tar_it "$TMP_MNT_DIR/"@$NUMBER "-"; then
+            return 0
+        else
+            die "Snapshot export failed!"
+        fi
     fi
-    if [ "$TRG_PATH" = '-' ]; then
-        TAR="-"
-    else
-        INFO="$TRG_PATH/$BOARD-medkit-$HOSTNAME-$NAME.info"
-        TAR="$TRG_PATH/$BOARD-medkit-$HOSTNAME-$NAME.tar.gz"
+
+    [ -d "$TMP_MNT_DIR"/@"$NUMBER" ] \
+        || die "Can't export non-existing snapshot!"
+    if [ $# -ne 1 ] || [ ! -d "$TRG_PATH" ]; then
+        die "Export takes target directory as argument!"
     fi
     if [ -z "$REMOTE_PATH" ]; then
         REMOTE_PATH="localhost"
         REMOTE_URL="$TRG_PATH"
     fi
-    if tar_it "$TMP_MNT_DIR"/@$NUMBER "$TAR" .; then
-        [ ! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || [ "$TAR" = "-" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
+    if tar_it "$TMP_MNT_DIR"/@$NUMBER "$TAR"; then
+        [ ! -f "$TMP_MNT_DIR"/"$NUMBER.info" ] || cp "$TMP_MNT_DIR"/"$NUMBER.info" "$INFO"
         if [ -n "$NUMBER" ]; then
             echo "Snapshot $NUMBER was exported into $REMOTE_PATH as $TAR" >&2
         else
