@@ -87,10 +87,12 @@ Commands:
   list [opts]             Show available snapshots.
       Options:
           -j              Output in json format.
+          -c              Output in csv format.
 
   rlist [opts]            Show uploaded snapshots.
       Options:
           -j              Output in json format.
+          -c              Output in csv format.
 
   cleanup [-c]            Deletes old snapshots and keeps only N newest.
                           You can set number of snapshots to keep in /etc/config/schnapps.
@@ -247,39 +249,56 @@ round_output() {
 TBL_NUM=4
 
 generic_list() {
-    JSON=""
-    [ "$1" = '-j' ] && JSON="y"
-    shift
-    cd "$1"
-    if [ -z "$JSON" ]; then
-        printf " $(printf "%0.s " $(seq 2 $TBL_NUM))# | Type      | Size        | Date                      | Description\n"
-        printf "-$(printf "%0.s-" $(seq $TBL_NUM))-+-----------+-------------+---------------------------+------------------------------------\n"
-    else
-        echo '{ "snapshots": ['
-    fi
-    FIRST="YES"
-    SNAPSHOTS="$(ls -1 "$1" | sed -n 's|^\([^[:blank:]]*[0-9]\+\)\.info|\1|p' | sort -n)"
-    for i in $SNAPSHOTS; do
-        CREATED=""
-        DESCRIPTION=""
-        TYPE="single"
-        SIZE=""
-        # TODO: Maybe make sure to read only data we are interested in just in
-        #       case somebody was tampering with our data file
-        . "$1/$i.info"
-        DESCRIPTION="$(filter_description "$DESCRIPTION")"
-        [ \! -d "$1/@$i" ] || SIZE="$(btrfs qgroup show -f "$1/@$i" | sed -n 's|.*[[:blank:]]\([0-9.MGKi]*B\)[[:blank:]]*$|\1|p')"
-        [ \! -f "$1/$i".tar.gz ] || SIZE="$(du -sh "$1/$i".tar.gz | sed 's|[[:blank:]].*||')"
-        [ \! -f "$1/$i".tar.gz.pgp ] || SIZE="$(du -sh "$1/$i".tar.gz.pgp | sed 's|[[:blank:]].*||')"
-        if [ -z "$JSON" ]; then
-            printf " %${TBL_NUM}s | %-9s | %11s | %25s | %s\n" "$i" "$TYPE" "$SIZE" "$CREATED" "$DESCRIPTION"
-        else
-            [ -n "$FIRST" ] || echo -n ", "
-            echo "{ \"id\": \"$i\", \"type\": \"$TYPE\", \"size\": \"$SIZE\", \"created\": \"$CREATED\", \"description\": \"$DESCRIPTION\" }"
-            FIRST=""
-        fi
-    done
-    [ -n "$JSON" ] && echo " ] }"
+    local format="human"
+    [ "$1" = '-j' ] && format="json"
+    [ "$1" = '-c' ] && format="csv"
+    local dir="$2"
+    cd "$dir"
+    case "$format" in
+        human)
+            printf " $(printf "%0.s " $(seq 2 $TBL_NUM))# | Type      | Size        | Date                      | Description\n"
+            printf "-$(printf "%0.s-" $(seq $TBL_NUM))-+-----------+-------------+---------------------------+------------------------------------\n"
+            ;;
+        json)
+            echo '{ "snapshots": ['
+            ;;
+        csv)
+            echo '#,type,size,date,description'
+            ;;
+    esac
+    local first="y"
+    find "$dir" -maxdepth 1 -mindepth 1 | sed -n 's|.*/\([^[:blank:]]*[0-9]\+\)\.info|\1|p' | sort -n \
+        | while read -r snapshot; do
+            CREATED=""
+            DESCRIPTION=""
+            TYPE="single"
+            SIZE=""
+            # TODO: Maybe make sure to read only data we are interested in just in
+            #       case somebody was tampering with our data file
+            . "$dir/$snapshot.info"
+            DESCRIPTION="$(filter_description "$DESCRIPTION")"
+            [ ! -d "$dir/@$snapshot" ] \
+                || SIZE="$(btrfs qgroup show -f "$dir/@$snapshot" | sed -n 's|.*[[:blank:]]\([0-9.MGKi]*B\)[[:blank:]]*$|\1|p')"
+            [ ! -f "$dir/$snapshot".tar.gz ] \
+                || SIZE="$(du -sh "$dir/$snapshot".tar.gz | sed 's|[[:blank:]].*||')"
+            [ ! -f "$dir/$snapshot".tar.gz.pgp ] \
+                || SIZE="$(du -sh "$dir/$snapshot".tar.gz.pgp | sed 's|[[:blank:]].*||')"
+            case "$format" in
+                human)
+                    printf " %${TBL_NUM}s | %-9s | %11s | %25s | %s\n" "$snapshot" "$TYPE" "$SIZE" "$CREATED" "$DESCRIPTION"
+                    ;;
+                json)
+                    [ "$first" = "y" ] || echo ", "
+                    printf '  { "id": "%s", "type": "%s", "size": "%s", "created": "%s", "description": "%s" }' "$snapshot" "$TYPE" "$SIZE" "$CREATED" "$DESCRIPTION"
+                    first=""
+                    ;;
+                csv)
+                    [ "${DESCRIPTION%%*,}" = "$DESCRIPTION" ] || DESCRIPTION="\"$DESCRIPTION\""
+                    printf '%s,%s,%s,%s,%s\n' "$snapshot" "$TYPE" "$SIZE" "$CREATED" "$DESCRIPTION"
+                    ;;
+            esac
+        done
+    [ "$format" = "json" ] && printf "\n] }\n"
 }
 
 list() {
