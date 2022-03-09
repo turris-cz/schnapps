@@ -139,10 +139,13 @@ Commands:
                           Numbers can be found via list command.
                           Shows even diffs of individual files.
 
-  export [snapshot] (path|-)
+  export [-c] [snapshot] (path|-)
                           Export snapshot as a medkit into a directory in the specified path or to
                           stdout if path is equal to '-'. Snapshot argument can be snapshot number
                           or omitted to backup running system.
+
+                          Exports are encrypted with pgp, if password is set. Option '-c' can be used
+                          to override this and to export unencrypted medkit.
 
   upload [snapshot] [[url] [path]]
                           Upload snapshot as a medkit into specified folder on WebDAV, Nextcloud
@@ -892,6 +895,7 @@ case $command in
         modify "$@"
         ;;
     export)
+        [ "$1" != '-c' ] || GPG_PASS=""
         export_sn "$@"
         ;;
     upload)
