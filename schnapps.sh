@@ -585,7 +585,7 @@ snp_status() {
 
 tar_it() {
     local dir="$1"
-    local name="$2"
+    local output="$2"
     if [ -d /etc/schnapps/export-exclude.d ] && \
        [ -n "$(ls /etc/schnapps/export-exclude.d/* 2> /dev/null)" ]; then
         mk_tmp_dir
@@ -599,15 +599,15 @@ tar_it() {
         chmod -R 0700 "$TEMP_DIR/gpg"
         export GNUPGHOME="$TEMP_DIR/gpg"
         echo "$GPG_PASS" > "$TEMP_DIR/gpg/pass"
-        [ "$name" = '-' ] || name="$name.gpg"
-        tar --numeric-owner $EXCLUDE --one-file-system -cpvf "$name" \
+        [ "$output" = '-' ] || output="$output.gpg"
+        tar --numeric-owner $EXCLUDE --one-file-system -cpvf "$output" \
             --use-compress-program="gzip -c - | gpg  --batch --yes \
                 --passphrase-file \"$TEMP_DIR/gpg/pass\" --cipher-algo=AES256 -c" \
             -C "$dir" . $OVERLAY
         ret="$?"
         return $ret
     else
-        tar --numeric-owner $EXCLUDE --one-file-system -cpzvf "$name" -C "$dir" . $OVERLAY
+        tar --numeric-owner $EXCLUDE --one-file-system -cpzvf "$output" -C "$dir" . $OVERLAY
         return $?
     fi
 }
