@@ -1,0 +1,18 @@
+image: "$CI_REGISTRY_IMAGE"
+
+basic:
+  script: BATS_LIB_PATH="/root/bats" tests/help-and-version.bats -F junit > report.xml
+  artifacts:
+    reports:
+      junit: report.xml
+
+local:
+  tags:
+    - dind
+  script:
+    - sh -c 'for i in `seq 0 9`; do [ -e /dev/loop$i ] || mknod /dev/loop$i b 7 $i; done'
+    - BATS_LIB_PATH="/root/bats" tests/local-tests.bats -F junit > report.xml
+  artifacts:
+    reports:
+      junit: report.xml
+
