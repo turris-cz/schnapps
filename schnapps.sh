@@ -71,8 +71,7 @@ if [ "x$1" == "x-d" ]; then
     shift 2
 fi
 
-[ -n "$ROOT_DEV" ] || die "Can't figure out device to work on"
-ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
+[ -z "$ROOT_DEV" ] || ROOT_LABEL="$(btrfs fi label "$ROOT_DEV")"
 [ -z "$ROOT_LABEL" ] || [ \! -f /etc/schnapps/"$ROOT_LABEL" ] || . /etc/schnapps/"$ROOT_LABEL"
 
 # Usage help
@@ -901,11 +900,23 @@ trap_cleanup() {
     exit "$ERR"
 }
 
+command="$1"
+shift
+case $command in
+    help)
+        show_help
+        exit 0
+        ;;
+    version)
+        echo "Schnapps version $VERSION"
+        exit 0
+        ;;
+esac
+
+[ -n "$ROOT_DEV" ] || die "Can't figure out device to work on"
 trap 'trap_cleanup' EXIT INT QUIT TERM ABRT
 mount_root
 
-command="$1"
-shift
 case $command in
     create)
         create "$@"
@@ -984,12 +995,6 @@ case $command in
             [ -n "$LAST" ] || LAST="factory"
             snp_diff "$LAST" "$2" "${3:-/}"
         fi
-        ;;
-    help)
-        show_help
-        ;;
-    version)
-        echo "Schnapps version $VERSION"
         ;;
     *)
         die_helping "Unknown command $command!"
