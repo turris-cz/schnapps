@@ -914,7 +914,10 @@ case $command in
         modify "$@"
         ;;
     export)
-        [ "$1" != '-c' ] || GPG_PASS=""
+        if [ "$1" = '-c' ]; then
+            GPG_PASS=""
+            shift
+        fi
         export_sn "$@"
         ;;
     upload)
