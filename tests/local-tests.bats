@@ -55,6 +55,18 @@ teardown_file() {
     check_dataset_A "$ROOT_MOUNT"/@1
 }
 
+@test "Comparing snapshots works" {
+    echo "aaaa" > "$MAIN_MOUNT"/test
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" create Testing snapshot
+    assert_success
+    echo "bbbb" > "$MAIN_MOUNT"/test
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" cmp
+    assert_success
+    assert_output --partial "~ /test"
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" diff
+    assert_output --regexp ".*test.*-aaaa.\+bbbb"
+}
+
 @test "Rollback works" {
     create_dataset_A "$MAIN_MOUNT"
     check_dataset_A "$MAIN_MOUNT"
