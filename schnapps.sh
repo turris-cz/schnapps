@@ -66,7 +66,7 @@ fi
 
 [ \! -f /etc/schnapps/config ] || . /etc/schnapps/config
 
-if [ "x$1" == "x-d" ]; then
+if [ "$1" = "-d" ]; then
     ROOT_DEV="$(btrfs fi show $2 | sed -n 's|.*\(/dev/[^[:blank:]]*\)$|\1|p')"
     shift 2
 fi
