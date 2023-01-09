@@ -203,6 +203,9 @@ mount_root() {
 }
 
 mount_snp() {
+    if [ $# != 1 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     mkdir -p /mnt/snapshot-@$1
     if [ -n "`ls -A "/mnt/snapshot-@$1"`" ]; then
         die "ERROR: Something is already in '/mnt/snapshot-@$1'"
@@ -305,6 +308,9 @@ generic_list() {
 }
 
 list() {
+    if [ $# -gt 1 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     generic_list "$1" "$TMP_MNT_DIR"
 }
 
@@ -362,6 +368,9 @@ create() {
 }
 
 modify() {
+    if [ $# = 0 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     NUMBER="$1"
     shift
     if [ \! -d "$TMP_MNT_DIR"/@$NUMBER ]; then
@@ -393,6 +402,9 @@ modify() {
 }
 
 delete() {
+    if [ $# != 1 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     NUMBER="$1"
     if [ \! -d "$TMP_MNT_DIR"/@$NUMBER ]; then
         echo "WARNING: Snapshot number $NUMBER does not exists!"
@@ -411,6 +423,9 @@ delete() {
 }
 
 rollback() {
+    if [ $# -gt 1 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     ROLL_TO="$1"
     if [ -n "$ROLL_TO" ] && [ \! -d "$TMP_MNT_DIR"/@$ROLL_TO ]; then
         die "Snapshot number $NUMBER does not exists!"
@@ -473,6 +488,9 @@ my_status() {
 }
 
 cleanup() {
+    if [ $# -gt 1 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     for info in "$TMP_MNT_DIR"/*.info; do
         [ -f "$info" ] || continue
         [ -d "$TMP_MNT_DIR/@`basename "$info" .info`" ] || rm "$info"
@@ -546,6 +564,9 @@ cleanup() {
 }
 
 snp_diff() {
+    if [ $# -gt 3 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     if [ \! -d "$TMP_MNT_DIR"/@$1 ]; then
         echo "Snapshot number $1 does not exists!"
         ERR=3
@@ -561,6 +582,9 @@ snp_diff() {
 }
 
 snp_status() {
+    if [ $# -gt 3 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     if [ \! -d "$TMP_MNT_DIR"/@$1 ]; then
         echo "WARNING: Snapshot number $1 does not exists!"
         return
@@ -738,6 +762,9 @@ remote_unmount() {
 }
 
 upload() {
+    if [ $# = 0 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     NUM=""
     if expr "$1" : '[0-9]*$' > /dev/null; then
         NUM="$1"
@@ -759,6 +786,11 @@ sync_snps() {
     if [ "x$1" = "x-t" ]; then
         SYNC_TYPES="$2"
         [ "$2" \!= all ] || SYNC_TYPES="$DEFAULT_SYNC_TYPES"
+        if [ "$3" ]; then
+            die_helping "Wrong number of arguments"
+        fi
+    elif [ "$1" ]; then
+        die_helping "Invalid argument"
     fi
     get_board
     for info in "$TMP_MNT_DIR"/*.info; do
@@ -783,6 +815,9 @@ sync_snps() {
 }
 
 remote_list() {
+    if [ $# != 1 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     remote_mount
     TBL_NUM=20
     generic_list "$1" "$TMP_RMT_MNT_DIR"/"$REMOTE_PATH"
@@ -815,6 +850,9 @@ download_tar() {
 }
 
 import_sn() {
+    if [ $# = 0 ] || [ $# -gt 2 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     if [ "x-f" = "x$1" ]; then
         shift
         case "$1" in
@@ -863,6 +901,9 @@ import_sn() {
 }
 
 delete_type() {
+    if [ $# != 1 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     # .info files are named ${SNAPSHOT_NUMBER}.info
     grep -l "TYPE=\"$1\"" "$TMP_MNT_DIR"/*.info | \
       sed -n 's|.*/\([0-9]\+\)\.info$|\1|p' | \
@@ -872,6 +913,9 @@ delete_type() {
 }
 
 savepoint() {
+    if [ $# -gt 1 ]; then
+        die_helping "Wrong number of arguments"
+    fi
     local time="$1"
     [ -n "$time" ] || time=10
     commit
