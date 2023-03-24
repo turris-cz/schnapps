@@ -164,6 +164,8 @@ Commands:
   import path             Import exported snapshot; path must point to .info file for the
                           snapshot.
 
+  update-factory          Updates factory image, if the devices is supported.
+
   help                    Display this help
 
   version                 Display version
@@ -977,6 +979,14 @@ case $command in
         ;;
     upload)
         upload "$@"
+        ;;
+    update-factory)
+        get_board
+        if [ "$BOARD" != schnapps ]; then
+            import_sn -f "https://repo.turris.cz/hbs/medkit/$BOARD-medkit-latest.tar.gz"
+        else
+            die "Don't know what device I am, can't update my factory image"
+        fi
         ;;
     import)
         import_sn "$@"
