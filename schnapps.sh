@@ -161,8 +161,9 @@ Commands:
                           server.
                           Multiple types can be divided by commas.
 
-  import path             Import exported snapshot; path must point to .info file for the
-                          snapshot.
+  import [-f] path        Import exported snapshot; path must point to .info file for the
+                          snapshot. Except when importing factory image with -f option, then it
+                          has to be a tarball, but it can be an URL as well.
 
   update-factory          Updates factory image, if the devices is supported.
 
