@@ -721,6 +721,10 @@ remote_mount() {
             [ -n "`which sshfs`" ] || die "sshfs is not available"
             sshfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" || die "Can't access remote filesystem"
             ;;
+        local://*)
+            FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|local://*|/|')"
+            mount -o bind "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" || die "Can't bind-mount local filesystem"
+            ;;
         smb:*|cifs:*)
             local final_remote_url="$(echo "$REMOTE_URL" | sed -n 's|^[a-z:0-9.]*://|//|p')"
             [ -n "$final_remote_url" ] || die "Invalid samba url $REMOTE_URL"
@@ -748,19 +752,12 @@ remote_mount() {
 remote_unmount() {
     [ -n "$REMOTE_MOUNTED" ] || return
     case "$REMOTE_URL" in
-        nextcloud://*)
-            umount -fl "$TMP_RMT_MNT_DIR" 2> /dev/null
-            ;;
-        webdav://*)
-            umount -fl "$TMP_RMT_MNT_DIR" 2> /dev/null
-            ;;
         ssh://*)
             fusermount -uz "$TMP_RMT_MNT_DIR" 2> /dev/null
             ;;
-        smb://*|cifs://*)
+        *)
             umount -fl "$TMP_RMT_MNT_DIR" 2> /dev/null
             ;;
-        *) die "Invalid URL" ;;
     esac
 }
 
