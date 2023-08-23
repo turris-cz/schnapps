@@ -721,8 +721,8 @@ remote_mount() {
             [ -n "`which sshfs`" ] || die "sshfs is not available"
             sshfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" || die "Can't access remote filesystem"
             ;;
-        local://*)
-            FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|local://*|/|')"
+        local://*|file://*)
+            FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|^local://*|/|' -e 's|^file://*|/|')"
             mount -o bind "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" || die "Can't bind-mount local filesystem"
             ;;
         smb:*|cifs:*)
