@@ -716,7 +716,7 @@ remote_mount() {
             webdav_mount
             ;;
         ssh://*)
-            FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|ssh://||' | sed -e 's|\:*\(\/.*\)|:\1|')"
+            FINAL_REMOTE_URL="$(echo "$REMOTE_URL" | sed -e 's|ssh://||' | sed -e 's|^\([^:/]*\)/|\1:/|')"
             expr "$FINAL_REMOTE_URL" : '.*:' > /dev/null || FINAL_REMOTE_URL="$FINAL_REMOTE_URL:"
             [ -n "`which sshfs`" ] || die "sshfs is not available"
             sshfs "$FINAL_REMOTE_URL" "$TMP_RMT_MNT_DIR" || die "Can't access remote filesystem"
