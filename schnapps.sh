@@ -288,6 +288,8 @@ generic_list() {
             DESCRIPTION="$(filter_description "$DESCRIPTION")"
             [ ! -d "$dir/@$snapshot" ] \
                 || SIZE="$(btrfs qgroup show -f "$dir/@$snapshot" | sed -n 's|.*[[:blank:]]\([0-9.MGKi]*B\)[[:blank:]]*$|\1|p')"
+            [ ! -d "$dir/@$snapshot" -a -z "$SIZE" ] \
+                || SIZE="$(btrfs qgroup show -f "$dir/@$snapshot" | sed -n 's|.*[[:blank:]]\([0-9.MGKi]*B\)[[:blank:]]*'"@$snapshot"'[[:blank:]]*$|\1|p')"
             [ ! -f "$dir/$snapshot".tar.gz ] \
                 || SIZE="$(du -sh "$dir/$snapshot".tar.gz | sed 's|[[:blank:]].*||')"
             [ ! -f "$dir/$snapshot".tar.gz.pgp ] \
