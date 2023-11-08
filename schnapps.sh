@@ -167,6 +167,8 @@ Commands:
 
   update-factory          Updates factory image, if the devices is supported.
 
+  factory-version         Display version of the image stored in factory snapshot.
+
   help                    Display this help
 
   version                 Display version
@@ -983,10 +985,21 @@ case $command in
     update-factory)
         get_board
         if [ "$BOARD" != schnapps ]; then
-            import_sn -f "https://repo.turris.cz/hbs/medkit/$BOARD-medkit-latest.tar.gz"
+            old_hash="$(cat "$TMP_MNT_DIR/@factory/.image_hash" 2> /dev/null)"
+            new_hash="$(wget -O - "https://repo.turris.cz/hbs/medkit/$BOARD-medkit-latest.tar.gz.sha256")"
+            [ -n "$new_hash" ] || die "Can't get a hash of new factory image!"
+            if [ "$old_hash" = "$new_hash" ]; then
+                echo "No update available, latest image available is already your factory image."
+            else
+                import_sn -f "https://repo.turris.cz/hbs/medkit/$BOARD-medkit-latest.tar.gz"
+                echo "$new_hash" > "$TMP_MNT_DIR/@factory/.image_hash"
+            fi
         else
             die "Don't know what device I am, can't update my factory image"
         fi
+        ;;
+    factory-version)
+        cat "$TMP_MNT_DIR/@factory/etc/turris-version" 2> /dev/null || echo 0
         ;;
     import)
         import_sn "$@"
