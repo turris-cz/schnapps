@@ -101,7 +101,8 @@ Commands:
                            * $KEEP_MAX_UPDATER updater snapshots
                            * $KEEP_MAX_ROLLBACK rollback backups snapshots
                           With --compare option also deletes snapshots that doesn't differ from
-                          the previous one.
+                          the next one (only the last snapshot from a group of identical ones
+                          is retained).
 
   delete <what>...        Deletes corresponding snapshots.
                           Arguments can be either snapshot number or type specification.
