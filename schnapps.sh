@@ -650,6 +650,9 @@ get_board() {
         *M[Oo][Xx]*)
             BOARD="mox"
             ;;
+        *Turris\ 1.*)
+            BOARD="turris1x"
+            ;;
         *)
             BOARD="schnapps"
             ;;
