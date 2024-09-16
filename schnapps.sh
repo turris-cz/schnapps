@@ -822,7 +822,7 @@ sync_snps() {
 }
 
 remote_list() {
-    if [ $# != 1 ]; then
+    if [ $# -gt 1 ]; then
         die_helping "Wrong number of arguments"
     fi
     remote_mount
