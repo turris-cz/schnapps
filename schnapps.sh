@@ -168,6 +168,9 @@ Commands:
 
   update-factory          Updates factory image, if the devices is supported.
 
+  defrag                  Renumber the snapshots to avoid holes.
+                          Warning: This will break the remote backups.
+
   factory-version         Display version of the image stored in factory snapshot.
 
   help                    Display this help
@@ -320,6 +323,29 @@ list() {
         die_helping "Wrong number of arguments"
     fi
     generic_list "$1" "$TMP_MNT_DIR"
+}
+
+defrag() {
+    cd "$TMP_MNT_DIR" || return
+    local i=0
+    ls -1 [0-9]*.info | sort -n | while read -r fl; do
+        i=$((i + 1))
+        local num="$(echo "$fl" | sed -n 's|\([0-9]*\)\.info|\1|p')"
+        [ "$num" ] || continue
+        [ "$num" -ne "$i" ] || continue
+        if [ -e "@$i" ]; then
+            echo "Target @$i already exists"
+            continue
+        fi
+        if [ -e "$i.info" ]; then
+            echo "Target $i.info already exists"
+            continue
+        fi
+        mv "@$num" "@$i"
+        mv "$num.info" "$i.info"
+        sed -i -e "s|\"Rollback to snapshot $num\"|\"Rollback to snapshot $i\"|" \
+               -e "s|ROLL_TO=$num\$|ROLL_TO=$i\$|" ./*.info
+    done
 }
 
 get_next_number() {
@@ -1037,6 +1063,9 @@ case $command in
             fi
             shift
         done
+        ;;
+    defrag)
+        defrag
         ;;
     rollback)
         rollback "$1"
