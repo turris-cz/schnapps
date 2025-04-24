@@ -114,3 +114,30 @@ teardown_file() {
     assert_file_exists "$ROOT_MOUNT"/1.info
     check_dataset_A "$ROOT_MOUNT"/@1
 }
+
+@test "Defrag works" {
+    create_dataset_A "$MAIN_MOUNT"
+    check_dataset_A "$MAIN_MOUNT"
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" create First testing snapshot
+    assert_success
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" create Second testing snapshot
+    assert_success
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" create Third testing snapshot
+    assert_success
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" rollback 3
+    assert_success
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" delete 2
+    assert_success
+    assert_dir_not_exists "$ROOT_MOUNT"/@2
+    assert_file_not_exists "$ROOT_MOUNT"/2.info
+    assert_dir_exists "$ROOT_MOUNT"/@4
+    assert_file_exists "$ROOT_MOUNT"/4.info
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" defrag
+    assert_dir_exists "$ROOT_MOUNT"/@2
+    assert_file_exists "$ROOT_MOUNT"/2.info
+    assert_dir_not_exists "$ROOT_MOUNT"/@4
+    assert_file_not_exists "$ROOT_MOUNT"/4.info
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" list
+    assert_output --partial "Rollback to snapshot 2"
+    assert_success
+}
