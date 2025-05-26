@@ -761,7 +761,7 @@ remote_unmount() {
     [ -n "$REMOTE_MOUNTED" ] || return
     case "$REMOTE_URL" in
         ssh://*)
-            fusermount -uz "$TMP_RMT_MNT_DIR" 2> /dev/null
+            fusermount3 -uz "$TMP_RMT_MNT_DIR" 2> /dev/null
             ;;
         *)
             umount -fl "$TMP_RMT_MNT_DIR" 2> /dev/null
