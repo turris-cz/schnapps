@@ -645,6 +645,9 @@ tar_it() {
 
 get_board() {
     case "$(cat /sys/firmware/devicetree/base/model 2> /dev/null)" in
+        *Omnia\ NG*)
+            BOARD="omnia-ng"
+            ;;
         *Omnia*)
             BOARD="omnia"
             ;;
