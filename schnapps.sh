@@ -703,9 +703,13 @@ export_sn() {
     [ -n "$NAME" ] || NAME="$(date +%Y%m%d)"
     TRG_PATH="$1"
 
-    if [ $# -ne 1 ] || [ ! -d "$TMP_MNT_DIR"/@"$NUMBER" ] || [ ! -d "$TRG_PATH" -a "$TRG_PATH" != '-' ]; then
+    if [ $# -ne 1 ] || [ ! -d "$TRG_PATH" -a "$TRG_PATH" != '-' ]; then
         die "Export takes target directory or '-' as an argument!"
     fi
+    if [ ! -d "$TMP_MNT_DIR"/@"$NUMBER" ]; then
+        die "Snapshot $NUMBER does not exist!"
+    fi
+
     if [ "$TRG_PATH" = '-' ]; then
         TAR="-"
     else
