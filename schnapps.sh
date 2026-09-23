@@ -911,9 +911,14 @@ import_sn() {
     else
         INFO="$1"
         TAR="$(echo "$INFO" | sed -n 's|.info$|.tar.gz|p')"
-        if [ $# -ne 1 ] || [ \! -f "$INFO" ] || [ \! -f "$TAR" ]; then
-            echo "Import takes one argument which is snapshot info file!"
-            die "Actual tarball has to be next to it!"
+        if [ $# -ne 1 ]; then
+            die "Import takes one argument which is snapshot info file!"
+        fi
+        if [ \! -f "$INFO" ]; then
+            die "Snapshot info file not found at given path!"
+        fi
+        if [ \! -f "$TAR" ]; then
+            die "Snapshot tarball not found at given path!"
         fi
     fi
     [ -r "$TAR" ] || die "No valid tarball found!"
