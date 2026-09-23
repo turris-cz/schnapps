@@ -441,7 +441,7 @@ delete() {
     fi
     NUMBER="$1"
     if [ \! -d "$TMP_MNT_DIR"/@$NUMBER ]; then
-        echo "WARNING: Snapshot number $NUMBER does not exists!"
+        echo "Snapshot number $NUMBER does not exist!"
         return 1
     fi
     # Recursively remove all subvolumes to ensure removal of snapshot
@@ -953,6 +953,9 @@ import_sn() {
 delete_type() {
     if [ $# != 1 ]; then
         die_helping "Wrong number of arguments"
+    fi
+    if ! echo "$1" | grep -qE '^(single|time|pre|post|rollback)$'; then
+        die "Invalid snapshot type (allowed: single, time, pre, post, rollback)!"
     fi
     # .info files are named ${SNAPSHOT_NUMBER}.info
     grep -l "TYPE=\"$1\"" "$TMP_MNT_DIR"/*.info | \
