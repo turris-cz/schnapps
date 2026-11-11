@@ -43,7 +43,7 @@ VERSION="@VERSION@"
 
 die() {
     echo "$@" >&2
-    ERR="${ERR:-1}"
+    [ "$ERR" != 0 ] || ERR=1
     exit 1
 }
 
@@ -462,7 +462,7 @@ rollback() {
     fi
     ROLL_TO="$1"
     if [ -n "$ROLL_TO" ] && [ \! -d "$TMP_MNT_DIR"/@$ROLL_TO ]; then
-        die "Snapshot number $NUMBER does not exists!"
+        die "Snapshot number $ROLL_TO does not exists!"
     fi
     if [ -z "$ROLL_TO" ]; then
         SKIP_TO=""
