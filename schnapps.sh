@@ -43,7 +43,7 @@ VERSION="@VERSION@"
 
 die() {
     echo "$@" >&2
-    ERR="${ERR:-1}"
+    [ "$ERR" != 0 ] || ERR=1
     exit 1
 }
 

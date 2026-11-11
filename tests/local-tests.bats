@@ -141,3 +141,15 @@ teardown_file() {
     assert_output --partial "Rollback to snapshot 2"
     assert_success
 }
+
+@test "Rollback to a missing snapshot fails" {
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" rollback 42
+    assert_failure
+    assert_output --partial "does not exists"
+}
+
+@test "Unknown command fails" {
+    run $SUDO "${ROOT_DIR}"/schnapps.sh -d "$MAIN_MOUNT" nosuchcommand
+    assert_failure
+    assert_output --partial "Unknown command nosuchcommand"
+}
